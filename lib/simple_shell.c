@@ -37,6 +37,8 @@ void exe_cmd(char *command){
             idx++;
             continue;
         }
+
+        //TODO: command parser
         commands[idx].func(0);
         break;
     }
