@@ -1,4 +1,4 @@
-ENTRY(_boot)
+ENTRY(_kernel8)
 
 STACK_SIZE = 0x40000; /* 256kB */
 HEAP_SIZE = 0x40000; /* 256kB */

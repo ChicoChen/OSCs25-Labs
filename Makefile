@@ -1,49 +1,81 @@
-BUILD_DIR = ./build
-INCLUDE_DIR = ./include
-SRC_DIR = ./src
-LIB_DIR = ./lib
+INCLUDE_DIR = ./include/
+LIB_DIR = ./lib/
+SRC_DIR = ./src/
+BUILD_DIR = ./build/
 
-CFILES = $(wildcard $(LIB_DIR)/*.c) $(wildcard $(SRC_DIR)/*.c)
-ASSEMBLYS = $(wildcard $(SRC_DIR)/*.S)
-OBJECTS = $(CFILES:.c=.o) $(ASSEMBLYS:.S=.o)
-
-COMPILE_FLAG = -nostdlib -g
 LOADER = loader
 KERNEL = kernel8
+
+KERNEL_DIR = $(KERNEL)/
+LOADER_DIR = $(LOADER)/
+
+COMPILE_FLAG = -nostdlib -g
 LLDB_FLAG = -s -S
 MINI_UART_FLAG = -serial null -serial stdio
+
+ASSEMBLIES = $(SRC_DIR)$(KERNEL_DIR)$(KERNEL).S $(SRC_DIR)$(LOADER_DIR)$(LOADER).S
+LOADER_ENTRY = $(SRC_DIR)$(LOADER_DIR)$(LOADER)_entry.c
+KERNEL_ENTRY = $(SRC_DIR)$(KERNEL_DIR)$(KERNEL)_entry.c
+CFILES = $(wildcard $(LIB_DIR)*.c)
+
+# KERNEL_O = $(patsubst %, $(BUILD_DIR)/%, $(notdir $(ASSEMBLIES:.S=.o)))
+OBJECTS = $(CFILES:.c=.o)
+
 
 .PHONY: all
 all: $(BUILD_DIR) run
 
 test:
-	echo $(notdir $(OBJECTS))
+	echo $(wildcard $(BUILD_DIR)*.o)
+	# echo $(CFILES)
+	# echo $(patsubst $(SRC_DIR)%, $(BUILD_DIR)%, $(ASSEMBLIES:.S=.o))
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
-	
-%.o: %.S | $(BUILD_DIR)
-	clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c $< -o $(BUILD_DIR)/$(notdir $@)
+	mkdir -p $(BUILD_DIR)$(LOADER_DIR)
+	mkdir -p $(BUILD_DIR)$(KERNEL_DIR)
 
-%.o: %.c | $(BUILD_DIR)
-	clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c -I $(INCLUDE_DIR) $< -o $(BUILD_DIR)/$(notdir $@)
+# kernel_o: $(ASSEMBLIES) | $(BUILD_DIR)
+# 	$(foreach source_s, $(ASSEMBLIES), \
+# 		clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c $(source_s) -o $(BUILD_DIR)/$(notdir $(source_s:.s=.o));\
+# 	)
 
-loader: $(LOADER).o | $(BUILD_DIR)
-	ld.lld -m aarch64elf -T loader.ld -o $(BUILD_DIR)/$(LOADER).elf $(BUILD_DIR)/$<
-	llvm-objcopy --output-target=aarch64-rpi3-elf -g -O binary $(BUILD_DIR)/$(LOADER).elf $(BUILD_DIR)/$(LOADER).img
+asm_obj: $(ASSEMBLIES) | $(BUILD_DIR)
+	$(foreach source_s, $(ASSEMBLIES), \
+		clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c $(source_s) \
+				-o $(patsubst $(SRC_DIR)%, $(BUILD_DIR)%, $(source_s:.S=.o));\
+	)
 
-kernel: $(OBJECTS) | $(BUILD_DIR)
-	ld.lld -m aarch64elf -T kernel.ld -o $(BUILD_DIR)/$(KERNEL).elf $(addprefix $(BUILD_DIR)/, $(notdir $(OBJECTS)))
-	llvm-objcopy --output-target=aarch64-rpi3-elf -g -O binary $(BUILD_DIR)/$(KERNEL).elf $(BUILD_DIR)/$(KERNEL).img
+c_obj: $(CFILES)| $(BUILD_DIR)
+	$(foreach source_c, $(CFILES),\
+		clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c -I $(INCLUDE_DIR) $(source_c) -o $(BUILD_DIR)$(notdir $(source_c:.c=.o));\
+	)
+	clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c -I $(INCLUDE_DIR) $(KERNEL_ENTRY) -o $(patsubst $(SRC_DIR)%, $(BUILD_DIR)%, $(KERNEL_ENTRY:.c=.o))
+	clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c -I $(INCLUDE_DIR) $(LOADER_ENTRY) -o $(patsubst $(SRC_DIR)%, $(BUILD_DIR)%, $(LOADER_ENTRY:.c=.o))
 
-run: kernel loader
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)/$(KERNEL).img -display none $(MINI_UART_FLAG)
+loader: asm_obj c_obj | $(BUILD_DIR)
+	ld.lld -m aarch64elf -T $(SRC_DIR)$(LOADER_DIR)$(LOADER).ld -o $(BUILD_DIR)$(LOADER_DIR)/$(LOADER).elf \
+			$(BUILD_DIR)$(LOADER_DIR)$(LOADER).o $(patsubst $(SRC_DIR)%, $(BUILD_DIR)%, $(KERNEL_ENTRY:.c=.o))\
+			$(wildcard $(BUILD_DIR)*.o)
+	llvm-objcopy --output-target=aarch64-rpi3-elf -g -O binary $(BUILD_DIR)$(LOADER_DIR)$(LOADER).elf $(BUILD_DIR)$(LOADER_DIR)$(LOADER).img
 
-debug: kernel loader
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)/$(KERNEL).img -display none $(MINI_UART_FLAG) $(LLDB_FLAG) 
+kernel: asm_obj c_obj | $(BUILD_DIR)
+	ld.lld -m aarch64elf -T $(SRC_DIR)$(KERNEL_DIR)$(KERNEL).ld -o $(BUILD_DIR)$(KERNEL_DIR)$(KERNEL).elf \
+							$(BUILD_DIR)$(KERNEL_DIR)$(KERNEL).o $(patsubst $(SRC_DIR)%, $(BUILD_DIR)%, $(KERNEL_ENTRY:.c=.o))\
+							$(wildcard $(BUILD_DIR)*.o)
+	llvm-objcopy --output-target=aarch64-rpi3-elf -g -O binary $(BUILD_DIR)$(KERNEL_DIR)$(KERNEL).elf $(BUILD_DIR)$(KERNEL_DIR)$(KERNEL).img
 
-asm: kernel loader
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)/$(KERNEL).img -display none -d in_asm $(MINI_UART_FLAG) $(LLDB_FLAG) 
+load: loader
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER_DIR)$(LOADER).img -display none $(MINI_UART_FLAG) $(LLDB_FLAG)
+
+run: kernel
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG)
+
+debug: kernel
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(LLDB_FLAG) 
+
+asm: kernel
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL_DIR)$(KERNEL).img -display none -d in_asm $(MINI_UART_FLAG) $(LLDB_FLAG)
 
 clean: 
 	rm -rf $(BUILD_DIR)

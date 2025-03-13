@@ -1,6 +1,6 @@
 .section ".text.boot"
-.global _boot
-_boot:
+.global _kernel8
+_kernel8:
   MRS x0, mpidr_el1
   AND x0, x0, #0xFF
 
@@ -25,6 +25,5 @@ _clear_bss:
 _bss_done:
   ADR x1, _stack_top
   mov sp, x1
-  //TODO
-  bl sys_entry
+  bl kernel_entry
   wfe
