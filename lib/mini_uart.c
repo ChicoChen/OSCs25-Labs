@@ -4,18 +4,18 @@
 void init_uart(){
     //set GPFSEL1
     unsigned int fsel_config = *GPFSEL1;
-    unsigned int alt5 = 0x010u;
-    fsel_config &= ~(0x111111u << 12); 
+    unsigned int alt5 = 2u;
+    fsel_config &= ~(63u << 12); 
     fsel_config |= (alt5 << 12) | (alt5 << 15);
     *GPFSEL1 = fsel_config;
 
     //GPPUD &
-    unsigned int pud_config = *GPFSEL1;
-    *GPFSEL1 = pud_config & ~(0x11u);
+    unsigned int pud_config = *GPPUD;
+    *GPPUD = 0x0u;
     delay(150);
     *GPPUD_CLK0 = 0x11u << 14;
     delay(150);
-    *GPFSEL1 = 0x0u;
+    *GPPUD = 0x0u;
     *GPPUD_CLK0 = 0x0u;
 
     *AUXENB = 0x01u;
