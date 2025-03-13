@@ -28,9 +28,3 @@ _bss_done:
   //TODO
   bl sys_entry
   wfe
-
-// occupy 8 bytes in .bss to test cleaning
-//   .section ".bss"
-//   .align 8
-// test_bss_var:
-//   .skip 8 
