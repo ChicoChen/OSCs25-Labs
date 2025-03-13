@@ -40,5 +40,6 @@ _clear_bss:
 _exec:
   adr x1, _stack_top
   mov sp, x1
+  bl loader_entry
   wfe
 

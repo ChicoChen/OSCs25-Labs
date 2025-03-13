@@ -1,3 +1,0 @@
-void load_entry(){
-
-}
