@@ -2,7 +2,7 @@
 .global _relocate_entry
 _relocate_entry:
   adr x0, .
-  ldr x1,= _target_addr
+  ldr x1,= _loader_start
   
   cmp x0, x1
   ldr x2,= _codesize
@@ -41,5 +41,6 @@ _exec:
   adr x1, _stack_top
   mov sp, x1
   bl loader_entry
-  wfe
+  ldr x1,= _kernel_start
+  br x1
 

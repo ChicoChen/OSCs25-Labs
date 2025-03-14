@@ -11,7 +11,7 @@ header = struct.pack('>II', hex_tag, kernel_size)
 
 interval = 8e-5
 
-with open('/dev/pts/7', 'wb', buffering= 0) as target,\
+with open('/dev/ttyUSB0', 'wb', buffering= 0) as target,\
     open(kernel_img, 'rb', buffering=0) as image:
     target.write(header)
     time.sleep(3)

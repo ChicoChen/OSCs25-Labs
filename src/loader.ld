@@ -3,12 +3,13 @@ ENTRY(_relocate_entry)
 STACK_SIZE = 0x8000; /* 32kB */
 HEAP_SIZE = 0x8000; /* 32kB */
 
-_target_addr = 0x60000;
+_loader_start = 0x60000;
+_kernel_start = 0x80000;
 
 SECTIONS
 {
     /*raspi load image to 0x80000 */
-    . = _target_addr;
+    . = _loader_start;
     .text.relocate : {KEEP(*(.text.relocate))}
     .text.boot : {KEEP(*(.text.boot))}
     .text : {*(.text)}
@@ -27,5 +28,5 @@ SECTIONS
 
     _stack_top = . + STACK_SIZE;
     . = _stack_top;
-    PROVIDE(_codesize = . - _target_addr);
+    PROVIDE(_codesize = . - _loader_start);
 }
