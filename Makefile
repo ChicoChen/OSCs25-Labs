@@ -11,6 +11,9 @@ COMPILE_FLAG = -nostdlib -g
 LLDB_FLAG = -s -S
 MINI_UART_FLAG = -serial null -serial stdio
 
+# ---------- Dependencies ----------
+LOADER_DEPS = str_utils mini_uart utils
+
 # ---------- Files ----------
 ASSEMBLIES = $(wildcard $(SRC_DIR)*.S)
 LOADER_ENTRY = $(LOADER)_entry.c
@@ -18,14 +21,11 @@ KERNEL_ENTRY = $(KERNEL)_entry.c
 CFILES = $(wildcard $(LIB_DIR)*.c)
 # OBJECTS = $(CFILES:.c=.o)
 
-
 .PHONY: all
 all: $(BUILD_DIR) run
 
 test:
-	# echo $(wildcard $(BUILD_DIR)*.o)
-	echo $(ASSEMBLIES)
-	# echo $(patsubst $(SRC_DIR)%, $(BUILD_DIR)%, $(ASSEMBLIES:.S=.o))
+	 echo $(LOADER_DEPS:=.o)
 # ---------- Building section ----------
 build:
 	mkdir -p $(BUILD_DIR)
@@ -46,8 +46,8 @@ c_obj: $(CFILES) build
 
 loader: asm_obj c_obj build
 	ld.lld -m aarch64elf -T $(SRC_DIR)$(LOADER).ld -o $(BUILD_DIR)$(LOADER).elf \
-			$(BUILD_DIR)$(LOADER).o $(BUILD_DIR)$(LOADER_ENTRY:.c=.o)
-			# TODO: Other needed package
+			$(BUILD_DIR)$(LOADER).o $(BUILD_DIR)$(LOADER_ENTRY:.c=.o) \
+			$(patsubst %, $(BUILD_DIR)$(LIB_DIR)%, $(LOADER_DEPS:=.o))
 	llvm-objcopy --output-target=aarch64-rpi3-elf -g -O binary $(BUILD_DIR)$(LOADER).elf $(BUILD_DIR)$(LOADER).img
 
 kernel: asm_obj c_obj build
@@ -57,8 +57,8 @@ kernel: asm_obj c_obj build
 	llvm-objcopy --output-target=aarch64-rpi3-elf -g -O binary $(BUILD_DIR)$(KERNEL).elf $(BUILD_DIR)$(KERNEL).img
 
 # ---------- Debug Section ----------
-load: loader
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -d in_asm $(MINI_UART_FLAG) $(LLDB_FLAG)
+load: loader kernel
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(LLDB_FLAG)
 
 run: kernel
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG)
