@@ -9,6 +9,7 @@ typedef enum{
 
 //--- Conversion ---
 char* itoa(unsigned int val, char *str, radix rad);
+int atoi(char *str, radix rad);
 
 //--- String Operation ---
 int strcmp(char* str1, char* str2);
