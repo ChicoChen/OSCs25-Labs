@@ -1,13 +1,15 @@
 #include "simple_commands.h"
 #include "mini_uart.h"
 #include "mailbox/mailbox.h"
+#include "file_sys/initramfs.h"
 #include "utils.h"
 
 Command commands[] = {
     {"help", cmd_help, "print this help menu"},
     {"hello", hello_world, "print Hello world!"},
-    {"reboot", reset, "reboot the device"},
+    {"ls", list_file, "show files"},
     {"mailbox", mailbox_entry, "show mailbox information"},
+    {"reboot", reset, "reboot the device"},
     {0, 0, 0} //terminator
 };
 

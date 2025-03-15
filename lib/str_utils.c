@@ -56,6 +56,29 @@ int atoi(char *str, radix rad){
     return num;
 }
 
+int carrtoi(char *str, unsigned int size, radix rad){
+    int num = 0;
+    int base = 10;
+    if(rad == HEX){
+        size -= 2;
+        str += 2;
+        base = 16;
+    }
+    if(size < 0) return -1;
+    
+    for(int i = 0; i < size; i++){
+        num *= base;
+        if(str[i] <= '9' && str[i] >= '0') num += str[i] - '0';
+        else if(rad == HEX && str[i] >= 'A' && str[i] <= 'f'){
+            int offset = (str[i] - 'A') % 32;
+            if(offset > 5) return -1;
+            num += 10 + offset;
+        }
+        else return -1;
+    }
+    return num;
+}
+
 //--- String Operation ---
 int strcmp(char* str1, char* str2){
     int idx = 0;

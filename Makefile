@@ -6,10 +6,12 @@ BUILD_DIR = build/
 # ---------- Program Name ----------
 LOADER = loader
 KERNEL = kernel8
+ROOTFS = initramfs.cpio
 # ---------- Compile flag ----------
 COMPILE_FLAG = -nostdlib -g
 LLDB_FLAG = -s -S
 MINI_UART_FLAG = -serial null -serial stdio
+INITRAMFS_FLAG = -initrd $(ROOTFS)
 
 # ---------- Dependencies ----------
 LOADER_DEPS = str_utils mini_uart utils
@@ -58,16 +60,16 @@ kernel: asm_obj c_obj build
 
 # ---------- Debug Section ----------
 load: loader kernel
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(LLDB_FLAG)
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(INITRAMFS_FLAG) $(LLDB_FLAG) 
 
 run: kernel
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG)
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(INITRAMFS_FLAG)
 
 debug: kernel
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(LLDB_FLAG) 
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(LLDB_FLAG) $(INITRAMFS_FLAG)
 
 asm: kernel
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none -d in_asm $(MINI_UART_FLAG) $(LLDB_FLAG)
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none -d in_asm $(MINI_UART_FLAG) $(LLDB_FLAG) $(INITRAMFS_FLAG)
 
 # ---------- Debug Section ----------
 clean: 
