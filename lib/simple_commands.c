@@ -1,6 +1,6 @@
 #include "simple_commands.h"
 #include "mini_uart.h"
-#include "mailbox.h"
+#include "mailbox/mailbox.h"
 #include "utils.h"
 
 Command commands[] = {

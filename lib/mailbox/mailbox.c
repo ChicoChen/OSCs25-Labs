@@ -1,4 +1,4 @@
-#include "mailbox.h"
+#include "mailbox/mailbox.h"
 #include "mini_uart.h"
 #include "str_utils.h"
 

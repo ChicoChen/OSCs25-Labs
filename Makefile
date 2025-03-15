@@ -18,14 +18,14 @@ LOADER_DEPS = str_utils mini_uart utils
 ASSEMBLIES = $(wildcard $(SRC_DIR)*.S)
 LOADER_ENTRY = $(LOADER)_entry.c
 KERNEL_ENTRY = $(KERNEL)_entry.c
-CFILES = $(wildcard $(LIB_DIR)*.c)
+CFILES = $(shell find lib -type f -iname '*.c')
 # OBJECTS = $(CFILES:.c=.o)
 
 .PHONY: all
-all: $(BUILD_DIR) run
+all: build run
 
 test:
-	 echo $(LOADER_DEPS:=.o)
+	 echo $(CFILES)
 # ---------- Building section ----------
 build:
 	mkdir -p $(BUILD_DIR)
