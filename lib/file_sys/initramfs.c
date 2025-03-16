@@ -6,10 +6,10 @@ char* newc_magic_str = "070701";
 char* terminator = "TRAILER!!!";
 int terminator_size = 11;
 
-int list_file(void *args){
+int list_ramfile(void *args){
     char buffer[LS_BUFFER_SIZE];
     char *mem = (char *)INITRAMFS_ADDRESS;
-    int write_head = 0;
+    int writehead = 0;
     while(1){
         cpio_newc_header *header = (cpio_newc_header*)mem;
         if(!check_magic(header->c_magic)) return 1;
@@ -18,10 +18,10 @@ int list_file(void *args){
 
         mem += HEADER_SIZE;
         for(int i = 0 ; i < pathsize; i++){
-            buffer[write_head++] = mem[i];
+            buffer[writehead++] = mem[i];
         }
         if(strcmp(mem, terminator)) break;
-        buffer[write_head++] = '\n';
+        buffer[writehead++] = '\n';
 
         mem += pathsize;
         while(((unsigned int) mem) % 4) mem++;
@@ -30,13 +30,51 @@ int list_file(void *args){
         while(((unsigned int) mem) % 4) mem++;
     }
 
-    for(int i = 0; i < write_head - terminator_size; i++){
+    for(int i = 0; i < writehead - terminator_size; i++){
+        if(buffer[i] == '\n') send_data('\r');
         send_data(buffer[i]);
     }
     // send_data('\n');
     return 0;
 }
 
+int view_ramfile(void *args){
+    send_string("Finename: ");
+    char filename[MAX_FILENAME];
+    echo_read_line(filename);
+
+    char *mem = (char *)INITRAMFS_ADDRESS;
+    char buffer[CAT_BUFFER_SIZE];
+    int writehead = 0;
+    int filesize = 0;
+    
+    int found = 0;
+    while(1){
+        cpio_newc_header *header = (cpio_newc_header*)mem;
+        if(!check_magic(header->c_magic)) return 1;
+        int pathsize = carrtoi(header->c_namesize, 8, HEX);
+        filesize = carrtoi(header->c_filesize, 8, HEX);
+
+        mem += HEADER_SIZE;
+        if(strcmp(mem, terminator)) return -1;
+        else if(strcmp(mem, filename)) found = 1;
+
+        mem += pathsize;
+        while(((unsigned int) mem) % 4) mem++;
+        if(found) break;
+
+        mem += filesize;
+        while(((unsigned int) mem) % 4) mem++;
+    }
+
+    for(int i = 0; i < filesize; i++){
+        if(mem[i] == '\n') send_data('\r');
+        send_data(mem[i]);
+    }
+    send_string("\r\n");
+
+    return 0;
+}
 
 int check_magic(char *magic){
     for(int i = 0; i < 6; i++){

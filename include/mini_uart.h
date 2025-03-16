@@ -21,8 +21,10 @@
 void init_uart();
 
 char read_data();
+int echo_read_line(char *inputline);
 
 void send_data(char c);
+void send_string(char *str);
 void send_line(char *line);
 
 #endif

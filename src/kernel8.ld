@@ -19,8 +19,10 @@ SECTIONS
 
     . = ALIGN(0x10);
     bss_end = .;
+    _heap_start = .;
 
-    . = bss_end + HEAP_SIZE;
+    . = _heap_start + HEAP_SIZE;
+    _heap_end = .;
 
     /* _stack_top = _heap_start + HEAP_SIZE + STACK_SIZE */
     _stack_top = . + STACK_SIZE;

@@ -14,7 +14,7 @@ MINI_UART_FLAG = -serial null -serial stdio
 INITRAMFS_FLAG = -initrd $(ROOTFS)
 
 # ---------- Dependencies ----------
-LOADER_DEPS = str_utils mini_uart utils
+LOADER_DEPS = mini_uart str_utils utils
 
 # ---------- Files ----------
 ASSEMBLIES = $(wildcard $(SRC_DIR)*.S)
@@ -24,10 +24,10 @@ CFILES = $(shell find lib -type f -iname '*.c')
 # OBJECTS = $(CFILES:.c=.o)
 
 .PHONY: all
-all: build run
+all: build loader kernel 
 
 test:
-	 echo $(CFILES)
+	echo $(CFILES)
 # ---------- Building section ----------
 build:
 	mkdir -p $(BUILD_DIR)
@@ -60,6 +60,9 @@ kernel: asm_obj c_obj build
 
 # ---------- Debug Section ----------
 load: loader kernel
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(INITRAMFS_FLAG)
+
+load_debug: loader kernel
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(INITRAMFS_FLAG) $(LLDB_FLAG) 
 
 run: kernel

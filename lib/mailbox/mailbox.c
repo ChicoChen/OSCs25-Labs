@@ -12,11 +12,9 @@
 #define END_TAG             0x00000000
 
 int mailbox_entry(void* args){
-    send_line("Mailbox info:\r\n");
+    send_line("Mailbox info:");
     print_board_revision();
-    send_line("\r\n");
     print_arm_memory();
-    send_line("\r\n");
     return 0;
 }
 
@@ -34,7 +32,7 @@ void print_board_revision(){
     
     mailbox_call((unsigned int)mailbox);
     char board_revision[11];
-    send_line(" Board revision: ");
+    send_string(" Board revision: ");
     send_line(itoa(mailbox[5], board_revision, HEX)); // it should be 0xa020d3 for rpi3 b+
 }
 
@@ -52,9 +50,9 @@ void print_arm_memory(){
     
     mailbox_call((unsigned int)mailbox);
     char mem_bass_addr[11];
-    send_line(" ARM memory base address: ");
+    send_string(" ARM memory base address: ");
     send_line(itoa(mailbox[5], mem_bass_addr, HEX));
-    send_line("\r\n ARM memory size: ");
+    send_string(" ARM memory size: ");
     send_line(itoa(mailbox[6], mem_bass_addr, HEX));
 }
 

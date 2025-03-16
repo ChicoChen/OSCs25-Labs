@@ -6,7 +6,7 @@
 
 int loader_entry(){
     init_uart();
-    send_line("waiting for protocal header...\n");
+    send_line("waiting for protocal header...");
     char header[HEADER_SIZE];
     
     for(int header_idx = 0; header_idx < HEADER_SIZE; header_idx++){
@@ -22,9 +22,8 @@ int loader_entry(){
     }
     char size[9];
     send_line(itoa(kernel_size, size, DEC));
-    send_data('\n');
 
-    send_line("waiting for kernel image...\n");
+    send_line("waiting for kernel image...");
     unsigned int *target_addr = KERNEL_ADDR;
     for(int received = 0; received < kernel_size; received+= 4){
         unsigned int word = 0;

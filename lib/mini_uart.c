@@ -36,6 +36,24 @@ char read_data(){
     return (char)*AUX_MU_IO_REG;
 }
 
+int echo_read_line(char *inputline){
+    //TODO: length checking
+    int writehead = 0;
+    while(1){
+        char input = read_data();
+        if(input == '\r'){ //enter pressed
+            inputline[writehead++] = '\0';
+            send_string("\r\n");
+            break;
+        }
+        else{
+            send_data(input);
+            inputline[writehead++] = input;
+        }
+    }
+    return writehead;
+}
+
 void send_data(char c){
     int transmit_ready = 0;
     while(!transmit_ready){
@@ -44,9 +62,18 @@ void send_data(char c){
     *AUX_MU_IO_REG = (unsigned int)c;
 }
 
+void send_string(char *str){
+    while(*str != '\0'){
+        send_data(*str);
+        str++;
+    }
+}
+
 void send_line(char *line){
     while(*line != '\0'){
         send_data(*line);
         line++;
     }
+    send_data('\r');
+    send_data('\n');
 }

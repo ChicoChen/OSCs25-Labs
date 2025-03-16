@@ -3,6 +3,6 @@
 
 void kernel_entry(){
     init_uart();
-    send_line("hello world\r\n");
+    send_line("hello world");
     simple_shell();
 }

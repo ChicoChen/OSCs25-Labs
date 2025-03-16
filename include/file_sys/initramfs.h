@@ -3,7 +3,8 @@
 
 #define INITRAMFS_ADDRESS 0x8000000
 #define LS_BUFFER_SIZE 256
-#define CAT_BUFFER_SIZE 256
+#define MAX_FILENAME 32
+#define CAT_BUFFER_SIZE 2048
 #define HEADER_SIZE 110
 
 typedef struct{
@@ -26,8 +27,8 @@ typedef struct{
 extern char* newc_magic_str;
 extern char* terminator;
 
-int list_file(void *args);
-char* view_file(void *args);
+int list_ramfile(void *args);
+int view_ramfile(void *args);
 
 int check_magic(char* magic);
 
