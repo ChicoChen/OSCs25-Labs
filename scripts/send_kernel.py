@@ -10,6 +10,7 @@ hex_tag = int.from_bytes(tag.encode(), "big")
 header = struct.pack('>II', hex_tag, kernel_size)
 interval = 8e-4
 print(f"size: {kernel_size}")
+print(header)
 
 with open('/dev/ttyUSB0', 'wb', buffering= 0) as target,\
     open(kernel_img, 'rb', buffering=0) as image:
