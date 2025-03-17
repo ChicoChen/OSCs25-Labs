@@ -2,5 +2,11 @@
 #define BASIC_TYPE_H
 
 typedef char bool;
+typedef char byte;
+
 typedef unsigned int uint32_t;
+typedef unsigned int size_t;
+
+typedef unsigned long long uint64_t;
+typedef unsigned long long addr_t;
 #endif

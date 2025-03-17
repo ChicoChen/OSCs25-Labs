@@ -1,5 +1,21 @@
 #include "str_utils.h"
 
+char *make_str(char *str, char c, size_t len){
+    //todo: size check on str
+    for(int i = 0; i < len; i++){
+        str[i] = c;
+    }
+    str[len] = '\0';
+    return str;
+}
+
+// --- Getters ---
+unsigned int get_size(char *str){
+    unsigned int size = 0;
+    while(str[size] != '\0') size++;
+    return size + 1;
+}
+
 //--- Conversion ---
 char* itoa(unsigned int val, char *str, radix rad){
     int idx;
@@ -24,7 +40,7 @@ char* itoa(unsigned int val, char *str, radix rad){
             str[idx++] = '0' + (val % 10);
             val /= 10;
         }while(val > 0);
-        str[idx] = '\0';
+        str[idx] = '\0'; //todo: can't print 0 when val = 0
         strrev(str);
         break;
 
