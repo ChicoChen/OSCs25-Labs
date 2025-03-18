@@ -13,15 +13,18 @@ SECTIONS
     .text.relocate : {KEEP(*(.text.relocate))}
     .text.boot : {KEEP(*(.text.boot))}
     .text : {*(.text)}
+    . = ALIGN(0x8);
 
     .rodata : {*(.rodata*)}
+
+    . = ALIGN(0x8); /* self-defined alignments for dtb table */
     .data : {*(.data)}
 
-    . = ALIGN(0x8);
+    . = ALIGN(0x8); /* self-defined alignments for bss initialization */
     bss_begin = .;
     .bss(NOLOAD) : {*(.bss*)}
 
-    . = ALIGN(0x10);
+    . = ALIGN(0x10); /* mailbox require 16-bytes alignment */
     bss_end = .;
 
     . = bss_end + HEAP_SIZE;

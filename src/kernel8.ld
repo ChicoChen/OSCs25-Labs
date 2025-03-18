@@ -11,6 +11,7 @@ SECTIONS
     .text : {*(.text)}
 
     .rodata : {*(.rodata*)}
+    . = ALIGN(0x8);
     .data : {*(.data)}
 
     . = ALIGN(0x8);

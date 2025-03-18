@@ -1,6 +1,9 @@
 .section ".text.boot"
 .global _kernel8
 _kernel8:
+  ldr x1, =_dtb_addr
+  str x20, [x1]
+
   MRS x0, mpidr_el1
   AND x0, x0, #0xFF
 
@@ -27,3 +30,7 @@ _bss_done:
   mov sp, x1
   bl kernel_entry
   wfe
+
+.section ".data"
+.global _dtb_addr
+_dtb_addr: .dc.a 0x08
