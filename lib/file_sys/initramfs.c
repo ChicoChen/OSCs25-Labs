@@ -7,8 +7,10 @@ char* terminator = "TRAILER!!!";
 int terminator_size = 11;
 
 int list_ramfile(void *args){
+    if(!initramfs_addr) return 1;
+
     char buffer[LS_BUFFER_SIZE];
-    char *mem = (char *)INITRAMFS_ADDRESS;
+    byte *mem = initramfs_addr;
     int writehead = 0;
     while(1){
         cpio_newc_header *header = (cpio_newc_header*)mem;
@@ -39,11 +41,13 @@ int list_ramfile(void *args){
 }
 
 int view_ramfile(void *args){
+    if(!initramfs_addr) return 1;
+
     send_string("Finename: ");
     char filename[MAX_FILENAME];
     echo_read_line(filename);
 
-    char *mem = (char *)INITRAMFS_ADDRESS;
+    byte *mem = initramfs_addr;
     char buffer[CAT_BUFFER_SIZE];
     int writehead = 0;
     int filesize = 0;
@@ -76,7 +80,11 @@ int view_ramfile(void *args){
     return 0;
 }
 
-int check_magic(char *magic){
+void set_initramfs_addr(addr_t addr){
+    initramfs_addr = (byte *)addr;
+}
+
+int check_magic(byte *magic){
     for(int i = 0; i < 6; i++){
         if(magic[i] != newc_magic_str[i]) return 0;
     }

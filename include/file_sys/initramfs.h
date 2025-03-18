@@ -1,7 +1,8 @@
 #ifndef INITRAMFS_H
 #define INITRAMFS_H
 
-#define INITRAMFS_ADDRESS 0x8000000
+#include "basic_type.h"
+
 #define LS_BUFFER_SIZE 256
 #define MAX_FILENAME 32
 #define CAT_BUFFER_SIZE 2048
@@ -26,10 +27,13 @@ typedef struct{
 
 extern char* newc_magic_str;
 extern char* terminator;
+static byte* initramfs_addr = 0;
 
 int list_ramfile(void *args);
 int view_ramfile(void *args);
 
-int check_magic(char* magic);
+void set_initramfs_addr(addr_t addr);
+
+int check_magic(byte* magic);
 
 #endif
