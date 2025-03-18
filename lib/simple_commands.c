@@ -5,14 +5,18 @@
 #include "mailbox/mailbox.h"
 #include "file_sys/initramfs.h"
 #include "allocator/simple_alloc.h"
+#include "devicetree/dtb.h"
+
+extern void *_dtb_addr;
 
 Command commands[] = {
-    {"help", cmd_help, "print the help menu"},
+    {"help", cmd_help, "show the help menu"},
     {"hello", hello_world, "print \"Hello world!\""},
     {"mailbox", mailbox_entry, "show mailbox information"},
     {"ls", list_ramfile, "list files in ramdisk"},
     {"cat", view_ramfile, "show file content"},
     {"memalloc", memalloc, "allocate memory for a string."},
+    {"dts", dts_wrapper, "show dts content."},
     {"reboot", reset, "reboot the device"},
     {0, 0, 0} //terminator
 };
@@ -26,6 +30,10 @@ int cmd_help(void *arg){
         idx++;
     }
     return 0;
+}
+
+int dts_wrapper(void *arg){
+    return dtb_parser(find_initramfs, (addr_t)_dtb_addr);
 }
 
 int hello_world(void *arg){

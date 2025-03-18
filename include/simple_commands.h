@@ -21,5 +21,6 @@ extern Command commands[];
 int cmd_help(void* args);
 int hello_world(void* args);
 int reset(void *arg);
+int dts_wrapper(void *arg);
 
 #endif
