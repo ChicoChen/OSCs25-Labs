@@ -8,7 +8,7 @@ kernel_size = os.path.getsize(kernel_img)
 tag = "KIMG"
 hex_tag = int.from_bytes(tag.encode(), "big")
 header = struct.pack('>II', hex_tag, kernel_size)
-interval = 8e-4
+interval = 8e-5
 print(f"size: {kernel_size}")
 print(header)
 

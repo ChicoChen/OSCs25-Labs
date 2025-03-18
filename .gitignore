@@ -1,3 +1,4 @@
 build/
 .vscode/*
 rootfs/*
+scripts/debug.lldb.sh
