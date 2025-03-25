@@ -46,6 +46,13 @@ int echo_read_line(char *inputline){
             send_string("\r\n");
             break;
         }
+        else if(input == 127){ // delete signal
+            if(writehead == 0) continue;
+            inputline[--writehead] = '\0';
+            send_data('\b');
+            send_data(' ');
+            send_data('\b');
+        }
         else{
             send_data(input);
             inputline[writehead++] = input;
