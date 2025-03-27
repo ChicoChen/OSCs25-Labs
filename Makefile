@@ -58,12 +58,6 @@ kernel: asm_obj c_obj build
 							$(wildcard $(BUILD_DIR)$(LIB_DIR)*.o)
 	llvm-objcopy --output-target=aarch64-rpi3-elf -g -O binary $(BUILD_DIR)$(KERNEL).elf $(BUILD_DIR)$(KERNEL).img
 
-loadless: asm_obj c_obj build
-	ld.lld -m aarch64elf -T $(SRC_DIR)$(KERNEL).ld -o $(BUILD_DIR)$(KERNEL).elf \
-							$(BUILD_DIR)$(KERNEL)_loadless.o $(BUILD_DIR)$(KERNEL_ENTRY:.c=.o)\
-							$(wildcard $(BUILD_DIR)$(LIB_DIR)*.o)
-	llvm-objcopy --output-target=aarch64-rpi3-elf -g -O binary $(BUILD_DIR)$(KERNEL).elf $(BUILD_DIR)$(KERNEL).img
-
 # ---------- Debug Section ----------
 load: loader kernel
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(MINI_UART_FLAG)  $(INITRAMFS_FLAG) -d in_asm $(LLDB_FLAG) 
@@ -71,13 +65,13 @@ load: loader kernel
 load_debug: loader kernel
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(INITRAMFS_FLAG) $(LLDB_FLAG) 
 
-run: loadless
+run: kernel
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(INITRAMFS_FLAG) $(DTB_FLAG)
 
-debug: loadless
+debug: kernel
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
 
-asm: loadless
+asm: kernel
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none -d in_asm $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
 
 # ---------- Debug Section ----------
