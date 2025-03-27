@@ -23,5 +23,6 @@ int carrtoi(char *str, unsigned int size, radix rad);
 //--- String Operation ---
 int strcmp(char* str1, char* str2);
 char* strrev(char* str);
-
+char* strtok(char* str, char* terminators);
+char *strchr(const char *str, int c);
 #endif

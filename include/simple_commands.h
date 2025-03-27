@@ -3,8 +3,6 @@
 
 #include "base_address.h"
 
-#define CMD_BUFFER_SIZE 256
-
 #define PM_RSTC     (MMIO_BASE + 0x10001c)
 #define PM_WDOG     (MMIO_BASE + 0x100024)
 

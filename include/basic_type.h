@@ -1,6 +1,8 @@
 #ifndef BASIC_TYPE_H
 #define BASIC_TYPE_H
 
+#define NULL 0
+
 typedef char bool;
 typedef char byte;
 

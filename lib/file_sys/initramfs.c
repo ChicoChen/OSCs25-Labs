@@ -43,9 +43,8 @@ int list_ramfile(void *args){
 int view_ramfile(void *args){
     if(!initramfs_addr) return 1;
 
-    send_string("Finename: ");
-    char filename[MAX_FILENAME];
-    echo_read_line(filename);
+    char *filename = *(char**) args;
+    if(filename == NULL) return 1;
 
     byte *mem = initramfs_addr;
     char buffer[CAT_BUFFER_SIZE];

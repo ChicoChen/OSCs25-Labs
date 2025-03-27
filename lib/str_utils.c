@@ -121,3 +121,29 @@ char* strrev(char* str){
     }
     return str;
 }
+
+char* strtok(char* str, char* terminators){
+    static char *target = 0;
+    if(str) target = str;
+    else if(!target || *str == '\0') return 0;
+    
+    while(strchr(terminators, *target)) target++;
+    
+    char *tok_start = target;
+    while(*target != '\0' && !strchr(terminators, *target)) target++;
+
+    char *next_tok = target;
+    if(*next_tok != '\0') next_tok++;
+    *target = '\0';
+    target = next_tok;
+
+    return tok_start;
+}
+
+char *strchr(const char *str, int c){
+    while(*str != '\0'){
+        if(*str == c) return str;
+        str++;
+    }
+    return 0;
+}
