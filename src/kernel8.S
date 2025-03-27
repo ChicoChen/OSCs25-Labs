@@ -3,7 +3,7 @@
 _kernel8:
   ldr x1, =_dtb_addr
   str x0, [x1]
-  bl _from_el2_to_el1
+  bl _el2_to_el1
 
   MRS x0, mpidr_el1
   AND x0, x0, #0xFF
@@ -30,7 +30,7 @@ _bss_done:
   bl kernel_entry
   wfe
 
-_from_el2_to_el1:
+_el2_to_el1:
   mov x0, (1 << 31) // EL1 uses aarch64
   msr hcr_el2, x0
   mov x0, 0x3c5 // EL1h (SPSel = 1) with interrupt disabled

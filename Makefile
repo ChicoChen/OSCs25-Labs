@@ -3,15 +3,16 @@ INCLUDE_DIR = include/
 LIB_DIR = lib/
 SRC_DIR = src/
 BUILD_DIR = build/
+ROOTFS = rootfs/
 # ---------- Program Name ----------
 LOADER = loader
 KERNEL = kernel8
-ROOTFS = initramfs.cpio
+INITRAMFS = initramfs.cpio
 # ---------- Compile flag ----------
 COMPILE_FLAG = -nostdlib -g
 LLDB_FLAG = -s -S
 MINI_UART_FLAG = -serial null -serial stdio
-INITRAMFS_FLAG = -initrd $(ROOTFS)
+INITRAMFS_FLAG = -initrd $(INITRAMFS)
 DTB_FLAG = -dtb bcm2710-rpi-3-b-plus.dtb
 # ---------- Dependencies ----------
 LOADER_DEPS = mini_uart str_utils utils
@@ -32,6 +33,9 @@ test:
 build:
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(BUILD_DIR)$(LIB_DIR)
+
+initramfs:
+	cd $(ROOTFS) && find . | cpio -o -H newc > ../$(INITRAMFS)
 
 asm_obj: $(ASSEMBLIES) build
 	$(foreach source_s, $(ASSEMBLIES), \
@@ -59,19 +63,19 @@ kernel: asm_obj c_obj build
 	llvm-objcopy --output-target=aarch64-rpi3-elf -g -O binary $(BUILD_DIR)$(KERNEL).elf $(BUILD_DIR)$(KERNEL).img
 
 # ---------- Debug Section ----------
-load: loader kernel
+load: loader kernel initramfs
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(MINI_UART_FLAG)  $(INITRAMFS_FLAG) -d in_asm $(LLDB_FLAG) 
 
-load_debug: loader kernel
+load_debug: loader kernel initramfs
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(INITRAMFS_FLAG) $(LLDB_FLAG) 
 
-run: kernel
+run: kernel initramfs
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(INITRAMFS_FLAG) $(DTB_FLAG)
 
-debug: kernel
+debug: kernel initramfs
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
 
-asm: kernel
+asm: kernel initramfs
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none -d in_asm $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
 
 # ---------- Debug Section ----------
