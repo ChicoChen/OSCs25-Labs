@@ -17,6 +17,7 @@ Command commands[] = {
     {"cat", view_ramfile, "show file content"},
     {"memalloc", memalloc, "allocate memory for a string."},
     {"dts", dts_wrapper, "show dts content."},
+    {"exec", exec_usr_prog, "execute user program in initramfs (target currently fixed)"},
     {"reboot", reset, "reboot the device"},
     {0, 0, 0} //terminator
 };
@@ -25,7 +26,7 @@ int cmd_help(void *arg){
     int idx = 0;
     while(commands[idx].name != 0){
         send_string(commands[idx].name);
-        send_string("\t: ");
+        send_string(":  ");
         send_line(commands[idx].description);
         idx++;
     }
