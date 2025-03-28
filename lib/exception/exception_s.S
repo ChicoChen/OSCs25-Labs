@@ -64,7 +64,7 @@ _exception_vector_table:
 
   b _exception_handler
   .align 7
-  b _exception_handler
+  b _core_timer_handler
   .align 7
   b _exception_handler
   .align 7
@@ -98,9 +98,36 @@ _exception_handler:
   load_all
   eret
 
-.global _set_exception_vec_table
-.type _set_exception_vec_table %function
-_set_exception_vec_table:
+_core_timer_handler:
+  save_all
+  mrs x0, cntpct_el0
+  mrs x1, cntfrq_el0
+  bl print_timeout_message
+
+  mov x0, 2
+  mrs x1, cntfrq_el0
+  mul x1, x1, x0
+  msr cntp_tval_el0, x1
+  load_all
+  eret
+
+.global _init_exception
+.type _init_exception %function
+_init_exception:
   adr x0, _exception_vector_table
-  msr vbar_el1, x0
+  msr vbar_el1, x0 
+  msr DAIFClr, 0xf // enable DAIF interrupts
+  ret;
+
+.equ CORE0_TIMER_IRQ_CTRL, 0x40000040
+.global _set_core_timer
+.type _set_core_timer function
+_set_core_timer:
+  msr cntp_ctl_el0, x0 // enable or disable
+  mov x0, 2
+  mrs x1, cntfrq_el0
+  mul x1, x1, x0
+  msr cntp_tval_el0, x1 // set expired time
+  ldr x1, =CORE0_TIMER_IRQ_CTRL
+  str w0, [x1] // unmask timer interrupt
   ret

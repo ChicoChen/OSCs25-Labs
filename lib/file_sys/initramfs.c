@@ -115,6 +115,8 @@ int exec_usr_prog(void* args){
     char *prog_name = "sys_call.img";
     int filesize = 0;
     addr_t source = find_address(prog_name, &filesize);
+    if(!source) return 1;
+    
     addr_t dest = USER_PROG_START;
     for(size_t size = 0; size < filesize; size += 4){ //file content is padded to 4 bytes
         *(uint32_t *)(dest + size) = *(uint32_t *)(source + size);

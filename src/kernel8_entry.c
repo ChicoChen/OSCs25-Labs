@@ -9,7 +9,7 @@ extern void *_dtb_addr;
 
 void kernel_entry(){
     init_uart();
-    _set_exception_vec_table();
+    _init_exception();
     send_line("----------");
     dtb_parser(find_initramfs, (addr_t)_dtb_addr);
     send_line("hello world");
