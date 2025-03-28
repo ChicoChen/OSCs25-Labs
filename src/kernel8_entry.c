@@ -8,8 +8,8 @@
 extern void *_dtb_addr;
 
 void kernel_entry(){
-    _set_exception_vec_table();
     init_uart();
+    _set_exception_vec_table();
     send_line("----------");
     dtb_parser(find_initramfs, (addr_t)_dtb_addr);
     send_line("hello world");

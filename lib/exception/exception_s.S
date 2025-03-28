@@ -91,7 +91,10 @@ _exception_vector_table:
 
 _exception_handler:
   save_all
-  bl exception_entry
+  mrs x0, spsr_el1
+  mrs x1, elr_el1
+  mrs x2, esr_el1
+  bl default_excep_entry
   load_all
   eret
 
@@ -100,3 +103,4 @@ _exception_handler:
 _set_exception_vec_table:
   adr x0, _exception_vector_table
   msr vbar_el1, x0
+  ret
