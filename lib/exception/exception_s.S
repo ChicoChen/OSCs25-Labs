@@ -50,64 +50,57 @@ _el1_to_el0:
   msr spsr_el1, x0
   eret
 
-.align 11 // vector table should be aligned to 0x800
+.align 11 // aligned to 0x800
 .global _exception_vector_table
 _exception_vector_table:
-  b _exception_handler // branch to a handler function.
-  .align 7 // entry size is 0x80, .align will pad 0
-  b _exception_handler
+  b _default_handler // default handler
+  .align 7 // aligned to 0x80, will pad 0
+  b _default_handler
   .align 7
-  b _exception_handler
+  b _default_handler
   .align 7
-  b _exception_handler
-  .align 7
-
-  b _exception_handler
-  .align 7
-  b _core_timer_handler
-  .align 7
-  b _exception_handler
-  .align 7
-  b _exception_handler
+  b _default_handler
   .align 7
 
-  b _exception_handler
+  b _default_handler
   .align 7
-  b _exception_handler
+  b _curr_irq_entry // irq interrupt form the same EL_x
   .align 7
-  b _exception_handler
+  b _default_handler
   .align 7
-  b _exception_handler
-  .align 7
-
-  b _exception_handler
-  .align 7
-  b _exception_handler
-  .align 7
-  b _exception_handler
-  .align 7
-  b _exception_handler
+  b _default_handler
   .align 7
 
-_exception_handler:
+  b _default_handler
+  .align 7
+  b _default_handler
+  .align 7
+  b _default_handler
+  .align 7
+  b _default_handler
+  .align 7
+
+  b _default_handler
+  .align 7
+  b _default_handler
+  .align 7
+  b _default_handler
+  .align 7
+  b _default_handler
+  .align 7
+
+_default_handler:
   save_all
   mrs x0, spsr_el1
   mrs x1, elr_el1
   mrs x2, esr_el1
-  bl default_excep_entry
+  bl print_el_message
   load_all
   eret
 
-_core_timer_handler:
+_curr_irq_entry:
   save_all
-  mrs x0, cntpct_el0
-  mrs x1, cntfrq_el0
-  bl print_timeout_message
-
-  mov x0, 2
-  mrs x1, cntfrq_el0
-  mul x1, x1, x0
-  msr cntp_tval_el0, x1
+  bl curr_irq_handler
   load_all
   eret
 
@@ -119,6 +112,7 @@ _init_exception:
   msr DAIFClr, 0xf // enable DAIF interrupts
   ret;
 
+// TODO: use inline assembly instead
 .equ CORE0_TIMER_IRQ_CTRL, 0x40000040
 .global _set_core_timer
 .type _set_core_timer function

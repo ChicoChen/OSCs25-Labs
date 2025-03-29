@@ -5,7 +5,7 @@ void delay(unsigned int cycle){
     }
 }
 
-void set(addr_t addr, unsigned int value) {
+void addr_set(addr_t addr, unsigned int value) {
     volatile unsigned int* point = (unsigned int*)addr;
     *point = value;
 }
