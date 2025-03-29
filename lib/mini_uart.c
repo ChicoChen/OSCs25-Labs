@@ -1,5 +1,5 @@
-#include "utils.h"
 #include "mini_uart.h"
+#include "utils.h"
 
 void init_uart(){
     //set GPFSEL1
@@ -20,12 +20,19 @@ void init_uart(){
 
     *AUXENB = 0x01u;
     *AUX_MU_CNTL_REG = 0x0u;
-    *AUX_MU_IER_REG = 0x0u;
+    *AUX_MU_IER_REG = 0x3u;
     *AUX_MU_LCR_REG = 0x03u;
     *AUX_MU_MCR_REG = 0x0u;
     *AUX_MU_BAUD_REG = 270u;
     *AUX_MU_IIR_REG = 6u;
     *AUX_MU_CNTL_REG = 3u;
+
+    enable_aux_interrupt(); // enable auxiliary interrupt(including mini_uart)
+
+    async_recv.head = 0;
+    async_recv.len = 0;
+    async_tran.head = 0;
+    async_tran.len = 0;
 }
 
 char read_data(){
@@ -36,11 +43,21 @@ char read_data(){
     return (char)*AUX_MU_IO_REG;
 }
 
+
+char async_read_data(){
+    while(async_recv.len == 0){}
+    atomic_add((addr_t) &async_recv.len, -1); // len might be modify by rx interrupt
+    if(!(*AUX_MU_IER_REG & 0b01)) *AUX_MU_IER_REG |= 0b01; // enable interrupt again if buffer has space
+    char data = async_recv.buffer[async_recv.head++];
+    async_recv.head %= ASYNC_BUFFER_SIZE;
+    return data;
+}
+
 int echo_read_line(char *inputline){
     //TODO: length checking
     int writehead = 0;
     while(1){
-        char input = read_data();
+        char input = async_read_data();
         if(input == '\r'){ //enter pressed
             inputline[writehead++] = '\0';
             send_string("\r\n");
@@ -64,9 +81,17 @@ int echo_read_line(char *inputline){
 void send_data(char c){
     int transmit_ready = 0;
     while(!transmit_ready){
-        transmit_ready = ((*AUX_MU_LSR_REG) >> 5) & (0x1u);
+        transmit_ready = (*AUX_MU_LSR_REG) & (0x1u << 5);
     }
     *AUX_MU_IO_REG = (unsigned int)c;
+}
+
+void async_send_data(char c){
+    while(async_tran.len >= ASYNC_BUFFER_SIZE){}
+    size_t idx = (async_tran.head + async_tran.len) % ASYNC_BUFFER_SIZE; 
+    async_tran.buffer[idx] = c;
+    atomic_add((addr_t) &async_tran.len, 1);
+    if(!(*AUX_MU_IER_REG & 0b10)) *AUX_MU_IER_REG |= 0b10; // enable interrupt has new data to send
 }
 
 void send_string(char *str){
@@ -83,4 +108,45 @@ void send_line(char *line){
     }
     send_data('\r');
     send_data('\n');
+}
+
+void async_send_line(char *line){
+    while(*line != '\0'){
+        async_send_data(*line);
+        line++;
+    }
+    async_send_data('\r');
+    async_send_data('\n');
+}
+
+
+// ----- exception handler * async send/recv -----
+void uart_except_handler(){
+    disable_aux_interrupt();
+    uint32_t interrupt_id = (*(AUX_MU_IIR_REG) >> 1) & 0b11;
+    if(interrupt_id == 2){
+        while((*AUX_MU_LSR_REG) & 0x1u){
+            if(async_recv.len >= ASYNC_BUFFER_SIZE){
+                *AUX_MU_IER_REG &= ~0b01;
+                break;
+            }
+            size_t idx = (async_recv.head + async_recv.len) % ASYNC_BUFFER_SIZE;
+            async_recv.buffer[idx] = (byte)*AUX_MU_IO_REG;
+            async_recv.len++; //TODO: what if len overflow?
+        }
+    }
+    else if(interrupt_id == 1){
+        while((*AUX_MU_LSR_REG) & (0x1u << 5)){
+            if(async_tran.len <= 0) {
+                *AUX_MU_IER_REG &= ~0b10;
+                break;
+            }
+
+            *AUX_MU_IO_REG = async_tran.buffer[async_tran.head];
+            async_tran.head = (async_tran.head + 1) % ASYNC_BUFFER_SIZE;
+            async_tran.len--;
+        }
+    }
+    else send_line("[unknown mini_uart interrupt!]");
+    enable_aux_interrupt();
 }
