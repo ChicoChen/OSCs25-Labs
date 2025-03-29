@@ -48,6 +48,6 @@ int reset(void *arg) {
     // int tick = *(int *)arg;
     send_line("rebooting...");
     int tick = 10;
-    set(PM_RSTC, PM_PASSWORD | 0x20);
-    set(PM_WDOG, PM_PASSWORD | tick);
+    addr_set(PM_RSTC, PM_PASSWORD | 0x20);
+    addr_set(PM_WDOG, PM_PASSWORD | tick);
 }

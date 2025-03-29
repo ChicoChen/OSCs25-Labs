@@ -26,7 +26,7 @@ LIBFILES = $(shell find lib -type f -iname '*.S') $(shell find lib -type f -inam
 # OBJECTS = $(LIBFILES:.c=.o)
 
 .PHONY: all
-all: build loader kernel 
+all: build loader kernel initramfs
 
 test:
 	echo $(LIBFILES)
