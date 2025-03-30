@@ -6,12 +6,12 @@
 
 int loader_entry(){
     init_uart();
-    send_line("waiting for protocal header...");
+    _send_line_("waiting for protocal header...", sync_send_data);
     char header[HEADER_SIZE];
     
     for(int header_idx = 0; header_idx < HEADER_SIZE; header_idx++){
-        char c = read_data();
-        send_data(c);
+        char c = sync_read_data();
+        sync_send_data(c);
         header[header_idx] = c;
     }
 
@@ -21,14 +21,14 @@ int loader_entry(){
         kernel_size += (unsigned int)header[i];
     }
     char size[9];
-    send_line(itoa(kernel_size, size, DEC));
+    _send_line_(itoa(kernel_size, size, DEC), sync_send_data);
 
-    send_line("waiting for kernel image...");
+    _send_line_("waiting for kernel image...", sync_send_data);
     unsigned int *target_addr = KERNEL_ADDR;
     for(int received = 0; received < kernel_size; received+= 4){
         unsigned int word = 0;
         for(int byte = 0; byte < 4; byte++){
-            word += read_data() << 8 * byte; //little endian
+            word += sync_read_data() << 8 * byte; //little endian
         }
         *target_addr++ = word;
     }

@@ -81,7 +81,7 @@ void print_dts(unsigned int type, char *name, void *data, size_t len){
         if(len == 0) break;
         send_string(": ");
         for(int i = 0; i < len; i++){
-            send_data(((char *)data)[i]);
+            async_send_data(((char *)data)[i]);
         }
         send_line("");
         break;

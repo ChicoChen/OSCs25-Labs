@@ -35,7 +35,7 @@ void init_uart(){
     async_tran.len = 0;
 }
 
-char read_data(){
+char sync_read_data(){
     int receive_ready = 0;
     while(!receive_ready){
         receive_ready = (*AUX_MU_LSR_REG) & 0x1u;
@@ -66,19 +66,19 @@ int echo_read_line(char *inputline){
         else if(input == 127){ // delete signal
             if(writehead == 0) continue;
             inputline[--writehead] = '\0';
-            send_data('\b');
-            send_data(' ');
-            send_data('\b');
+            async_send_data('\b');
+            async_send_data(' ');
+            async_send_data('\b');
         }
         else{
-            send_data(input);
+            async_send_data(input);
             inputline[writehead++] = input;
         }
     }
     return writehead;
 }
 
-void send_data(char c){
+void sync_send_data(char c){
     int transmit_ready = 0;
     while(!transmit_ready){
         transmit_ready = (*AUX_MU_LSR_REG) & (0x1u << 5);
@@ -94,31 +94,28 @@ void async_send_data(char c){
     if(!(*AUX_MU_IER_REG & 0b10)) *AUX_MU_IER_REG |= 0b10; // enable interrupt has new data to send
 }
 
+//default async sending
 void send_string(char *str){
+        _send_string_(str, async_send_data);
+}
+
+void _send_string_(char *str, void (*send_func)(char)){
     while(*str != '\0'){
-        send_data(*str);
+        send_func(*str);
         str++;
     }
 }
 
+//default async sending
 void send_line(char *line){
-    while(*line != '\0'){
-        send_data(*line);
-        line++;
-    }
-    send_data('\r');
-    send_data('\n');
+    _send_line_(line, async_send_data);
 }
 
-void async_send_line(char *line){
-    while(*line != '\0'){
-        async_send_data(*line);
-        line++;
-    }
-    async_send_data('\r');
-    async_send_data('\n');
+void _send_line_(char *line, void (*send_func)(char)){
+    _send_string_(line, send_func);
+    send_func('\r');
+    send_func('\n');
 }
-
 
 // ----- exception handler * async send/recv -----
 void uart_except_handler(){
@@ -132,7 +129,9 @@ void uart_except_handler(){
             }
             size_t idx = (async_recv.head + async_recv.len) % ASYNC_BUFFER_SIZE;
             async_recv.buffer[idx] = (byte)*AUX_MU_IO_REG;
-            async_recv.len++; //TODO: what if len overflow?
+            // // TODO: what if len overflow?
+            //it won't since len can't >= ASYNC_BUFFER_SIZE
+            async_recv.len++;
         }
     }
     else if(interrupt_id == 1){

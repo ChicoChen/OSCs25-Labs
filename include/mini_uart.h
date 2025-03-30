@@ -41,18 +41,20 @@ static AsyncBuf async_tran;
 
 void init_uart();
 // ----- read -----
-char read_data();
+char sync_read_data();
 char async_read_data();
 
 int echo_read_line(char *inputline);
 
 // ----- write -----
-void send_data(char c);
+void sync_send_data(char c);
 void async_send_data(char c);
 
-void send_string(char *str);
+void send_string(char *str); //default async
+void _send_string_(char *str, void (*send_func)(char));
+
 void send_line(char *line);
-void async_send_line(char *line);
+void _send_line_(char *line, void (*send_func)(char));
 // ----- exceptions -----
 void uart_except_handler();
 

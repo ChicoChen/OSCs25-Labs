@@ -38,8 +38,8 @@ int list_ramfile(void *args){
     }
 
     for(int i = 0; i < writehead - terminator_size; i++){
-        if(buffer[i] == '\n') send_data('\r');
-        send_data(buffer[i]);
+        if(buffer[i] == '\n') async_send_data('\r');
+        async_send_data(buffer[i]);
     }
     // send_data('\n');
     return 0;
@@ -76,8 +76,8 @@ int view_ramfile(void *args){
     }
 
     for(int i = 0; i < filesize; i++){
-        if(mem[i] == '\n') send_data('\r');
-        send_data(mem[i]);
+        if(mem[i] == '\n') async_send_data('\r');
+        async_send_data(mem[i]);
     }
     send_string("\r\n");
 

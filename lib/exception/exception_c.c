@@ -3,14 +3,14 @@
 
 void print_el_message(uint32_t spsr_el1, uint64_t elr_el1, uint64_t esr_el1){
     char reg_content[20];
-    send_string("spsr_el1: ");
-    send_line(itoa(spsr_el1, reg_content, HEX));
+    _send_string_("spsr_el1: ", sync_send_data);
+    _send_line_(itoa(spsr_el1, reg_content, HEX), sync_send_data);
     
-    send_string("elr_el1: ");
-    send_line(itoa(elr_el1, reg_content, HEX));
+    _send_string_("elr_el1: ", sync_send_data);
+    _send_line_(itoa(elr_el1, reg_content, HEX), sync_send_data);
     
-    send_string("esr_el1: ");
-    send_line(itoa(esr_el1, reg_content, HEX));
+    _send_string_("esr_el1: ", sync_send_data);
+    _send_line_(itoa(esr_el1, reg_content, HEX), sync_send_data);
     
     return;
 }
@@ -20,7 +20,7 @@ void curr_irq_handler(){
     if(source & 0x01u << 1) core_timer_handler();
     else if(source & 0x01u << 8) uart_except_handler();
     else{
-        send_line("[unknown irq interrupt]"); // use sychronous
+        _send_line_("[unknown irq interrupt]", sync_send_data);
     }
 }
 
@@ -56,9 +56,9 @@ int config_core_timer(void *args){
 
 void print_timeout_message(uint64_t count, uint64_t freq){
     unsigned int second = count / freq;
-    send_line("");
-    send_data('[');
+    _send_line_("", sync_send_data);
+    sync_send_data('[');
     char sec_str[10];
-    send_string(itoa(second, sec_str, DEC));
-    send_line("]");
+    _send_string_(itoa(second, sec_str, DEC), sync_send_data);
+    _send_line_("]", sync_send_data);
 }

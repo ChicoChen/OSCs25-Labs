@@ -10,7 +10,7 @@ extern void *_dtb_addr;
 void kernel_entry(){
     _init_exception();
     init_uart();
-    async_send_line("--------------------");
+    send_line("--------------------");
     dtb_parser(find_initramfs, (addr_t)_dtb_addr);
     send_line("hello world");
     simple_shell();
