@@ -6,7 +6,7 @@
 #include "file_sys/initramfs.h"
 #include "allocator/simple_alloc.h"
 #include "devicetree/dtb.h"
-#include "exception/exception.h"
+#include "timer/timer.h"
 
 extern void *_dtb_addr;
 
@@ -19,7 +19,7 @@ Command commands[] = {
     {"memalloc", memalloc, "allocate memory for a string."},
     {"dts", dts_wrapper, "show dts content."},
     {"exec", exec_usr_prog, "execute user program in initramfs (target currently fixed)"},
-    {"timer", config_core_timer, "switch on and off core timer"},
+    {"tick", tick_callback, "switch on and off timer tick"},
     {"reboot", reset, "reboot the device"},
     {0, 0, 0} //terminator
 };
