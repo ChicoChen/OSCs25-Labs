@@ -20,6 +20,7 @@ uint32_t to_le_u32(uint32_t big_uint){
     return little_uint;
 }
 
+//TODO: fix this
 void atomic_add(addr_t address, int offset){
     // unsigned int status;
     // size_t old_value, new_value;

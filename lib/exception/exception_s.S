@@ -111,17 +111,3 @@ _init_exception:
   msr vbar_el1, x0 
   msr DAIFClr, 0xf // enable DAIF interrupts
   ret;
-
-// TODO: use inline assembly instead
-.equ CORE0_TIMER_IRQ_CTRL, 0x40000040
-.global _set_core_timer
-.type _set_core_timer function
-_set_core_timer:
-  msr cntp_ctl_el0, x0 // enable or disable
-  mov x0, 2
-  mrs x1, cntfrq_el0
-  mul x1, x1, x0
-  msr cntp_tval_el0, x1 // set expired time
-  ldr x1, =CORE0_TIMER_IRQ_CTRL
-  str w0, [x1] // unmask timer interrupt
-  ret
