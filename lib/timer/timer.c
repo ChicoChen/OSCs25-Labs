@@ -22,17 +22,29 @@ void core_timer_handler(){
         iter = iter->next;
     }
 
-    if(iter) {
-        events.head = iter;
-        set_timeout(iter->target_clock);
-    }
+    events.head = iter;
+    if(iter) set_timeout(iter->target_clock);
     else enable_core_timer(false);
 }
 
 int tick_callback(void* args){
     char *flag = *(char **)args;
     bool enable = BOOL(atoi(flag, DEC));
-    if(!enable) enable_core_timer(false);
+    if(!enable){
+        //delete all tick_callback in queue
+        enable_core_timer(false);
+        while(events.head){
+            if(events.head->callback_func == tick_callback) events.head = events.head -> next;
+            else break;
+        }
+        if(!events.head) return 1;
+
+        TimerEvent *iter = events.head;
+        while(iter->next){
+            if(iter->next->callback_func == tick_callback) iter->next = iter->next->next;
+            else iter = iter->next;
+        }
+    }
     else{
         print_tick_message();
         add_event(2, tick_callback, args);
