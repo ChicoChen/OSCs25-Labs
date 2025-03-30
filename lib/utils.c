@@ -21,19 +21,19 @@ uint32_t to_le_u32(uint32_t big_uint){
 }
 
 void atomic_add(addr_t address, int offset){
-    unsigned int status;
-    size_t old_value, new_value;
-    do {
-        __asm__ volatile(
-            "ldxrb %w0, [%1]"
-            : "=r" (old_value)
-            : "r" (address)
-            : "memory"); //exclusive load
-        new_value = old_value + offset;
-        __asm__ volatile(
-            "stxrb %w0, %w1, [%2]"
-            : "=&r" (status)
-            : "r" (new_value), "r" (address)
-            : "memory"); //status 0 = success, 1 = failure
-    } while (status != 0);
+    // unsigned int status;
+    // size_t old_value, new_value;
+    // do {
+    //     __asm__ volatile(
+    //         "ldaxr %w0, [%1]"
+    //         : "=r" (old_value)
+    //         : "r" (address)
+    //         : "memory"); //exclusive load
+    //     new_value = old_value + offset;
+    //     __asm__ volatile(
+    //         "stlxr %w0, %w1, [%2]"
+    //         : "=&r" (status)
+    //         : "r" (new_value), "r" (address)
+    //         : "memory"); //status 0 = success, 1 = failure
+    // } while (status != 0);
 }

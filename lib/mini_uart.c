@@ -46,10 +46,11 @@ char sync_read_data(){
 
 char async_read_data(){
     while(async_recv.len == 0){}
-    atomic_add((addr_t) &async_recv.len, -1); // len might be modify by rx interrupt
-    if(!(*AUX_MU_IER_REG & 0b01)) *AUX_MU_IER_REG |= 0b01; // enable interrupt again if buffer has space
+    async_recv.len--; // len might be modify by rx interrupt if not atomic
+    // atomic_add((addr_t) &async_recv.len, -1); //TODO: ldxr cause translation fault
     char data = async_recv.buffer[async_recv.head++];
     async_recv.head %= ASYNC_BUFFER_SIZE;
+    if(!(*AUX_MU_IER_REG & 0b01)) *AUX_MU_IER_REG |= 0b01; // enable interrupt again if buffer has space
     return data;
 }
 
@@ -90,7 +91,8 @@ void async_send_data(char c){
     while(async_tran.len >= ASYNC_BUFFER_SIZE){}
     size_t idx = (async_tran.head + async_tran.len) % ASYNC_BUFFER_SIZE; 
     async_tran.buffer[idx] = c;
-    atomic_add((addr_t) &async_tran.len, 1);
+    async_tran.len++; // len might be modify by rx interrupt if not atomic
+    // atomic_add((addr_t) &async_tran.len, 1); //TODO: ldxr cause translation fault
     if(!(*AUX_MU_IER_REG & 0b10)) *AUX_MU_IER_REG |= 0b10; // enable interrupt has new data to send
 }
 
