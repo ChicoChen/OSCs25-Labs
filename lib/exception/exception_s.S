@@ -1,6 +1,6 @@
 // save general registers to stack
 .macro save_all
-    sub sp, sp, 32 * 8
+    sub sp, sp, 34 * 8 // 31 + 3 register
     stp x0, x1, [sp ,16 * 0]
     stp x2, x3, [sp ,16 * 1]
     stp x4, x5, [sp ,16 * 2]
@@ -16,11 +16,21 @@
     stp x24, x25, [sp ,16 * 12]
     stp x26, x27, [sp ,16 * 13]
     stp x28, x29, [sp ,16 * 14]
-    str x30, [sp, 16 * 15]
+    mrs x0, spsr_el1
+    mrs x1, elr_el1
+    mrs x2, esr_el1
+    stp x30, x0,  [sp, 16 * 15]
+    stp x1,  x2,  [sp, 16 * 16]
 .endm
 
 // load general registers from stack
 .macro load_all
+    ldp x1,  x2, [sp ,16 * 16]
+    ldp x30, x0, [sp ,16 * 15]
+    msr spsr_el1, x0
+    msr elr_el1, x1
+    msr esr_el1, x2
+
     ldp x0, x1, [sp ,16 * 0]
     ldp x2, x3, [sp ,16 * 1]
     ldp x4, x5, [sp ,16 * 2]
@@ -36,14 +46,13 @@
     ldp x24, x25, [sp ,16 * 12]
     ldp x26, x27, [sp ,16 * 13]
     ldp x28, x29, [sp ,16 * 14]
-    ldr x30, [sp, 16 * 15]
-    add sp, sp, 32 * 8
+    add sp, sp, 34 * 8
 .endm
 
 .section ".text"
 .global _el1_to_el0
 .type _el1_to_el0 %function
-_el1_to_el0:
+_el1_to_el0: // TODO: inline assembly version?
   msr elr_el1, x0
   msr sp_el0, x1
   mov x0, 0x3c0
@@ -90,24 +99,20 @@ _exception_vector_table:
   .align 7
 
 _default_handler:
+  msr DAIFSet, 0xf
   save_all
   mrs x0, spsr_el1
   mrs x1, elr_el1
   mrs x2, esr_el1
   bl print_el_message
   load_all
+  msr DAIFClr, 0xf
   eret
 
 _curr_irq_entry:
+  msr DAIFSet, 0xf
   save_all
   bl curr_irq_handler
   load_all
+  msr DAIFClr, 0xf
   eret
-
-.global _init_exception
-.type _init_exception %function
-_init_exception:
-  adr x0, _exception_vector_table
-  msr vbar_el1, x0 
-  msr DAIFClr, 0xf // enable DAIF interrupts
-  ret;

@@ -9,7 +9,7 @@
 extern void *_dtb_addr;
 
 void kernel_entry(){
-    _init_exception();
+    init_exception();
     init_core_timer();
     init_uart();
     send_line("--------------------");
