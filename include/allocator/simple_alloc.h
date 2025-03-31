@@ -8,7 +8,7 @@ extern char _heap_end;
 #define HEAP_END (char*)(&_heap_end)
 
 static char *memory_ptr = HEAP_START;
-char* simple_alloc(unsigned int size);
+void *simple_alloc(unsigned int size);
 int memalloc(void *args);
 
 #endif

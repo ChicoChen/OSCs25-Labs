@@ -57,7 +57,7 @@ int tick_wrapper(void *arg){
 int delayed_printline(void *arg){
     char** arguments = (char **)arg;
     size_t message_len = get_size(arguments[0]);
-    void *message = (void *)simple_alloc(message_len); //! deallocator
+    void *message = simple_alloc(message_len); //! deallocator
     memcpy(message, arguments[0], message_len);
     uint64_t offset = atoi(arguments[1], DEC);
     return add_event(offset, send_void_line, message);

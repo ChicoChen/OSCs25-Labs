@@ -3,7 +3,7 @@
 #include "str_utils.h"
 #include "utils.h"
 
-char* simple_alloc(unsigned int size){
+void *simple_alloc(unsigned int size){
     memory_ptr = (char *) align((void *)memory_ptr, 8);
     if(memory_ptr + size > HEAP_END) {
         send_line("!out of heap space");
