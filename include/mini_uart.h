@@ -54,7 +54,9 @@ void send_string(char *str); //default async
 void _send_string_(char *str, void (*send_func)(char));
 
 void send_line(char *line);
+void send_void_line(void *vstr);
 void _send_line_(char *line, void (*send_func)(char));
+
 // ----- exceptions -----
 void uart_except_handler();
 

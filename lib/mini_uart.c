@@ -113,6 +113,11 @@ void send_line(char *line){
     _send_line_(line, async_send_data);
 }
 
+void send_void_line(void *vstr){
+    char *line = (char *)vstr;
+    send_line(line);
+}
+
 void _send_line_(char *line, void (*send_func)(char)){
     _send_string_(line, send_func);
     send_func('\r');

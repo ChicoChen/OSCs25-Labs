@@ -6,7 +6,7 @@
 
 #define CORE0_INTERRUPT_SOURCE (volatile uint32_t *)(CORE_INTERRUPT_BASE + 0x60)
 
-extern void core_timer_handler(); //"timer/timer.h"
+extern void timer_interrupt_handler(); //"timer/timer.h"
 
 void _el1_to_el0(addr_t return_addr, addr_t user_stack);
 void _init_exception();

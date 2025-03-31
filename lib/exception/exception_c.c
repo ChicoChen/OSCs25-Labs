@@ -18,7 +18,7 @@ void print_el_message(uint32_t spsr_el1, uint64_t elr_el1, uint64_t esr_el1){
 
 void curr_irq_handler(){
     uint32_t source = *CORE0_INTERRUPT_SOURCE;
-    if(source & 0x01u << 1) core_timer_handler();
+    if(source & 0x01u << 1) timer_interrupt_handler();
     else if(source & 0x01u << 8) uart_except_handler();
     else{
         _send_line_("[unknown irq interrupt]", sync_send_data);

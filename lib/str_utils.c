@@ -10,7 +10,7 @@ char *make_str(char *str, char c, size_t len){
 }
 
 // --- Getters ---
-unsigned int get_size(char *str){
+size_t get_size(char *str){
     unsigned int size = 0;
     while(str[size] != '\0') size++;
     return size + 1;
