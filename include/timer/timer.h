@@ -9,7 +9,7 @@
 
 typedef struct TimerEvent{
     uint64_t target_clock;
-    int (*callback_func)(void* args);
+    void (*callback_func)(void* args);
     void *args;
     struct TimerEvent *next;
 } TimerEvent;
@@ -20,11 +20,13 @@ typedef struct{
 } EventQueue;
 
 void init_core_timer();
-void core_timer_handler();
-int add_event(uint64_t offset, int (*callback_func)(void* arg), void *args);
+void timer_interrupt_handler();
+int add_event(uint64_t offset, void (*callback_func)(void* arg), void *args);
 int config_core_timer(void *args);
 
-int tick_callback(void* args);
+void tick_callback(void* args);
+
+int alarm_print(void* args);
 void print_tick_message();
 
 // ----- Private Members -----

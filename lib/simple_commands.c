@@ -1,6 +1,7 @@
 #include "simple_commands.h"
 #include "mini_uart.h"
 #include "utils.h"
+#include "str_utils.h"
 
 #include "mailbox/mailbox.h"
 #include "file_sys/initramfs.h"
@@ -19,7 +20,8 @@ Command commands[] = {
     {"memalloc", memalloc, "allocate memory for a string."},
     {"dts", dts_wrapper, "show dts content."},
     {"exec", exec_usr_prog, "execute user program in initramfs (target currently fixed)"},
-    {"tick", tick_callback, "switch on and off timer tick"},
+    {"tick", tick_wrapper, "switch on and off timer tick"},
+    {"setTimeout", delayed_printline, "echo inputline after assigned seconds"},
     {"reboot", reset, "reboot the device"},
     {0, 0, 0} //terminator
 };
@@ -35,13 +37,26 @@ int cmd_help(void *arg){
     return 0;
 }
 
+int hello_world(void *arg){
+    send_line("Hello world!");
+    return 0;
+}
+
 int dts_wrapper(void *arg){
     return dtb_parser(find_initramfs, (addr_t)_dtb_addr);
 }
 
-int hello_world(void *arg){
-    send_line("Hello world!");
-    return 0;
+int tick_wrapper(void *arg){
+    return add_event(2, tick_callback, arg);
+}
+
+int delayed_printline(void *arg){
+    char** arguments = (char **)arg;
+    size_t message_len = get_size(arguments[0]);
+    void *message = (void *)simple_alloc(message_len);
+    memcpy(message, arguments[0], message_len);
+    uint64_t offset = atoi(arguments[1], DEC);
+    return add_event(offset, send_void_line, message);
 }
 
 int reset(void *arg) {        

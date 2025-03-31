@@ -76,6 +76,7 @@ int view_ramfile(void *args){
     }
 
     for(int i = 0; i < filesize; i++){
+        // TODO: long data like "peepo.txt" has corruption issue
         if(mem[i] == '\n') async_send_data('\r');
         async_send_data(mem[i]);
     }
