@@ -47,7 +47,11 @@ int dts_wrapper(void *arg){
 }
 
 int tick_wrapper(void *arg){
-    return add_event(2, tick_callback, arg);
+    char *flag = *(char **)arg;
+    bool enable = BOOL(atoi(flag, DEC));
+    if(enable) add_event(2, tick_callback, 0);
+    else timer_clear_event(tick_callback);
+    return 1;
 }
 
 int delayed_printline(void *arg){

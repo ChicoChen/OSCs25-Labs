@@ -22,11 +22,9 @@ typedef struct{
 void init_core_timer();
 void timer_interrupt_handler();
 int add_event(uint64_t offset, void (*callback_func)(void* arg), void *args);
-int config_core_timer(void *args);
+void timer_clear_event(void (*callback_func)(void* arg));
 
 void tick_callback(void* args);
-
-int alarm_print(void* args);
 void print_tick_message();
 
 // ----- Private Members -----
