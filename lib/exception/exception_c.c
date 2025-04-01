@@ -4,15 +4,16 @@
 #include "mini_uart.h"
 #include "str_utils.h"
 
-#define EXCEPT_TASK_SIZE 24
-#define EXCEPT_QUEUE_SIZE 16
+static void enableDAIF() { asm volatile("msr DAIFClr, 0xf" :::); }
+static void disableDAIF() { asm volatile("msr DAIFSet, 0xf" :::); }
 
 typedef enum {
     // lower
-        UART,
-        TIMER
+    UART,
+    TIMER
     // higher
 }IrqPriority;
+#define EXCEPT_TASK_SIZE 24
 
 // TODO: a standard link-list template
 typedef struct ExceptTask{
@@ -20,6 +21,7 @@ typedef struct ExceptTask{
     void (*handler)();
     IrqPriority priority;
 }ExceptTask;
+#define EXCEPT_QUEUE_SIZE 16
 
 typedef struct ExceptQueue{
     struct ExceptQueue *preemptor;
@@ -27,17 +29,14 @@ typedef struct ExceptQueue{
     ExceptTask *head;
 }ExceptQueue;
 
+// ----- Declare Local Functions -----
 static ExceptQueue* base_queue;
-
 static void init_except_task(ExceptTask *task, void (*handler)(), IrqPriority priority);
 static void init_except_queue(ExceptQueue *que, ExceptTask *task);
-
 static ExceptQueue *enqueue_task(ExceptTask *task);
 static void exec_queue(ExceptQueue *queue);
 
-static void enableDAIF();
-static void disableDAIF();
-
+// ----- Defining Public Functions -----
 void init_exception(){
     base_queue = NULL;
     asm volatile(
@@ -49,6 +48,11 @@ void init_exception(){
     );
 }
 
+/** 
+ * Handle and routing all irq from current EL
+ *
+ * disable recieved interrupt's signal to keeps it from recurring 
+ **/ 
 void curr_irq_handler(){
     uint32_t source = *CORE0_INTERRUPT_SOURCE;
     ExceptTask* new_task = (ExceptTask *)simple_alloc(EXCEPT_TASK_SIZE);
@@ -84,6 +88,12 @@ void print_el_message(uint32_t spsr_el1, uint64_t elr_el1, uint64_t esr_el1){
     return;
 }
 
+/** 
+ * enqueue handler's execution order according to its priority.
+ *
+ * @param task, the newly encounted interrupt/exception
+ * @return address of newly created queue, NULL in no queue created
+ **/ 
 static ExceptQueue *enqueue_task(ExceptTask *task){
     ExceptQueue *que_iter = base_queue;
     ExceptQueue *prev_queue= NULL;
@@ -102,25 +112,30 @@ static ExceptQueue *enqueue_task(ExceptTask *task){
         return new_queue;
     }
 
-    // insert in existed queue
-    ExceptTask *task_iter = que_iter->head;
-    while(task_iter-> next && task_iter->next->priority >= task->priority){
-        task_iter = task_iter->next;
+    // else: insert in existed queue
+    ExceptTask *prev_task = que_iter->head;
+    while(prev_task-> next && prev_task->next->priority >= task->priority){
+        prev_task = prev_task->next;
     }
-    task->next = task_iter->next;
-    task_iter->next = task;
+    task->next = prev_task->next;
+    prev_task->next = task;
     return NULL;
 }
 
+/** 
+ * Execute all handler in a queue while interrupted enabled.
+ *
+ * @param queue queue to be executed
+ **/
 static void exec_queue(ExceptQueue *queue){
-    enableDAIF();
     while(queue->head){
+        enableDAIF();
         queue->head->handler();
+        disableDAIF();
+
         queue->head = queue->head->next;
     }
-
     if(base_queue == queue) base_queue = NULL;
-    disableDAIF();
 }
 
 static void init_except_task(ExceptTask *task, void (*handler)(), IrqPriority priority){
@@ -133,12 +148,4 @@ static void init_except_queue(ExceptQueue *que, ExceptTask *task){
     que->head = task;
     que->preemptor = NULL;
     // que->preemptee = NULL;
-}
-
-static void enableDAIF(){
-    asm volatile("msr DAIFClr, 0xf" :::);
-}
-
-static void disableDAIF(){
-    asm volatile("msr DAIFSet, 0xf" :::);
 }

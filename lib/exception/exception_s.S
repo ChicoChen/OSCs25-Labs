@@ -53,6 +53,7 @@
 .global _el1_to_el0
 .type _el1_to_el0 %function
 _el1_to_el0: // TODO: inline assembly version?
+  msr DAIFSet, 0xf
   msr elr_el1, x0
   msr sp_el0, x1
   mov x0, 0x3c0
@@ -106,7 +107,7 @@ _default_handler:
   mrs x2, esr_el1
   bl print_el_message
   load_all
-  msr DAIFClr, 0xf
+  // msr DAIFClr, 0xf // don't need to enable DAIF again since eret restore PSTATE
   eret
 
 _curr_irq_entry:
@@ -114,5 +115,4 @@ _curr_irq_entry:
   save_all
   bl curr_irq_handler
   load_all
-  msr DAIFClr, 0xf
   eret
