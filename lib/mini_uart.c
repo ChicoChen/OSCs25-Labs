@@ -1,6 +1,9 @@
 #include "mini_uart.h"
 #include "utils.h"
 
+void enable_aux_interrupt() { *ENABLE_IRQs1 = (1u << 29); }
+void disable_aux_interrupt() { *DISABLE_IRQs1 = (1u << 29); }
+
 void init_uart(){
     //set GPFSEL1
     unsigned int fsel_config = *GPFSEL1;
@@ -126,7 +129,7 @@ void _send_line_(char *line, void (*send_func)(char)){
 
 // ----- exception handler * async send/recv -----
 void uart_except_handler(){
-    disable_aux_interrupt();
+    // disable_aux_interrupt(); already disable by exception handler
     uint32_t interrupt_id = (*(AUX_MU_IIR_REG) >> 1) & 0b11;
     if(interrupt_id == 2){
         while((*AUX_MU_LSR_REG) & 0x1u){

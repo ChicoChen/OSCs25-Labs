@@ -3,6 +3,15 @@
 #include "str_utils.h"
 #include "allocator/simple_alloc.h"
 
+static EventQueue events;
+static void get_timer(uint64_t *count, uint64_t *freq);
+static void set_timeout(uint64_t target_cval);
+
+
+void enable_core_timer(bool enable){
+    asm volatile("msr cntp_ctl_el0, %[flag]"::[flag]"r"(enable):);
+}
+
 void init_core_timer(){
     events.head = NULL;
     events.initialized = true;
@@ -15,19 +24,19 @@ void timer_interrupt_handler(){
     uint64_t freq;
     get_timer(&current_count, &freq);
     
+    // trigger all due timeout event
     TimerEvent* iter = events.head;
     while(iter){
         if(iter->target_clock > current_count) break;
-
-        // _send_line_("trigger callback", sync_send_data);
         iter->callback_func(iter->args);
-        
         iter = iter->next;
     }
 
     events.head = iter;
-    if(iter) set_timeout(iter->target_clock);
-    else enable_core_timer(false);
+    if(iter) {
+        set_timeout(iter->target_clock);
+        enable_core_timer(true);
+    }
 }
 
 int add_event(uint64_t offset, void (*callback_func)(void* arg), void *args){
@@ -101,7 +110,14 @@ void print_tick_message(){
     _send_line_("]", sync_send_data);
 }
 
-void set_timeout(uint64_t target_cval){
+static void get_timer(uint64_t *count, uint64_t *freq){
+    asm volatile(
+        "mrs %[count], cntpct_el0\n"
+        "mrs %[freq], cntfrq_el0\n"
+        : [count]"=r"(*count), [freq]"=r"(*freq)::);
+}
+
+static void set_timeout(uint64_t target_cval){
     uint64_t current, freq;
     get_timer(&current, &freq);
     if(current + TIMER_INTERRUPT_MIN_INTERVAL >= target_cval) target_cval = current + TIMER_INTERRUPT_MIN_INTERVAL;

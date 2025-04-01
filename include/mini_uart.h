@@ -27,14 +27,14 @@
 
 #define ASYNC_BUFFER_SIZE 256u
 
-static inline void disable_aux_interrupt() { *DISABLE_IRQs1 = (1u << 29); }
-static inline void enable_aux_interrupt() { *ENABLE_IRQs1 = (1u << 29); }
-
 typedef struct{
     byte buffer[ASYNC_BUFFER_SIZE];
     size_t head;
     size_t len;
 }AsyncBuf;
+
+void disable_aux_interrupt();
+void enable_aux_interrupt();
 
 static AsyncBuf async_recv;
 static AsyncBuf async_tran;
@@ -59,5 +59,4 @@ void _send_line_(char *line, void (*send_func)(char));
 
 // ----- exceptions -----
 void uart_except_handler();
-
 #endif
