@@ -3,7 +3,9 @@
 
 #define NULL 0
 
-typedef char bool;
+typedef enum { false = 0, true = 1 } bool;
+#define BOOL(x) ((x) ? 1 : 0)
+
 typedef char byte;
 
 typedef unsigned int uint32_t;

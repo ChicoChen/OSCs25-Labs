@@ -42,6 +42,7 @@ _exec:
   adr x11, _stack_top
   mov sp, x11
   bl loader_entry
+  mov x0, x20
   ldr x11,= _kernel_start
   br x11
 
