@@ -6,9 +6,9 @@ void delay(unsigned int cycle){
 }
 
 void *align(void *addr, size_t base){
+    if(base & (base - 1)) return NULL; // check if power of 2
     addr_t mem_addr = (addr_t)addr;
-    if(mem_addr % base) mem_addr += base - (mem_addr % base);
-    return (void *)mem_addr;
+    return (void *)((mem_addr + base - 1) & ~(base - 1));
 }
 
 void *memcpy(void *str1, void *str2, size_t size){

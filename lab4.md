@@ -12,8 +12,9 @@
     - page-based (4KB) allocation on available memory region
 3. dynamic allocator
     - Allocate smaller memory region within allocated page
-    - Implemented using ???
+    - Implemented using "header & payload" approach
 
 ### Todo:
-    1. Review Buddy system
-    2. Decide algorithm for (3)
+~~1. Review Buddy system~~
+~~2. Decide algorithm for (3)~~
+
