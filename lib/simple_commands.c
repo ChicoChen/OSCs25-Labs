@@ -9,6 +9,8 @@
 #include "devicetree/dtb.h"
 #include "timer/timer.h"
 
+#include "allocator/page_allocator.h"
+
 extern void *_dtb_addr;
 
 Command commands[] = {
@@ -22,6 +24,7 @@ Command commands[] = {
     {"exec", exec_usr_prog, "execute user program in initramfs (target currently fixed)"},
     {"tick", tick_wrapper, "switch on and off timer tick"},
     {"setTimeout", delayed_printline, "echo inputline after assigned seconds"},
+    {"demo", demo_page, "demoing page allocation"},
     {"reboot", reset, "reboot the device"},
     {0, 0, 0} //terminator
 };
@@ -41,6 +44,15 @@ int hello_world(void *arg){
     send_line("Hello world!");
     return 0;
 }
+
+int reset(void *arg) {        
+    // int tick = *(int *)arg;
+    send_line("rebooting...");
+    int tick = 10;
+    addr_set(PM_RSTC, PM_PASSWORD | 0x20);
+    addr_set(PM_WDOG, PM_PASSWORD | tick);
+    return 0;
+};
 
 int dts_wrapper(void *arg){
     return dtb_parser(find_initramfs, (addr_t)_dtb_addr);
@@ -63,11 +75,13 @@ int delayed_printline(void *arg){
     return add_event(offset, send_void_line, message);
 }
 
-int reset(void *arg) {        
-    // int tick = *(int *)arg;
-    send_line("rebooting...");
-    int tick = 10;
-    addr_set(PM_RSTC, PM_PASSWORD | 0x20);
-    addr_set(PM_WDOG, PM_PASSWORD | tick);
+
+int demo_page(void *arg){
+    char *num_page = *((char **)arg);
+    size_t allocate_size = (size_t)atoi(num_page, DEC) * PAGE_SIZE - 1;
+    void *addr = page_alloc(allocate_size);
+    send_string("get address ");
+    char temp[16];
+    send_line(itoa((unsigned int)addr, temp, HEX));
     return 0;
 }

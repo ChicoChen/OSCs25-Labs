@@ -3,6 +3,7 @@
 #include "mini_uart.h"
 #include "basic_type.h"
 #include "utils.h"
+#include "str_utils.h"
 
 typedef int PageStatus;
 #define PAGE_GROUPED    -1
@@ -13,17 +14,21 @@ typedef int PageStatus;
 typedef struct{
     PageStatus status;
     size_t idx;
-    ListNode *node;
+    ListNode node;
 } PageBlock;
 
 PageBlock *page_array = NULL;
 PageBlock *free_list[BLOCKSIZE_MAX_ORDER + 1]; // record head of each length
+#ifdef MEMALLOC_LOGGER
+char pagelog_buffer[128];
+#endif
 
 // ----- Forward Declaration -----
 #define GET_BUDDY(idx, level) (idx ^ (1 << level))
 
 void init_block(PageBlock *block, PageStatus status, size_t idx);
 void insert_free_list(PageBlock *new_block, PageStatus level);
+size_t calculate_order(size_t size);
 void *to_page_address(PageBlock *block);
 size_t to_block_idx(void *addr);
 
@@ -44,6 +49,7 @@ int init_page_array(void *start_addr){
                             BLOCKSIZE_MAX_ORDER;
         init_block(page_array + i, status, i);
     }
+    return 0;
 }
 
 void *page_alloc(size_t size){
@@ -51,44 +57,65 @@ void *page_alloc(size_t size){
 
     PageBlock *target = NULL;
     size_t order = calculate_order(size); // find minumum order.
+
+#ifdef MEMALLOC_LOGGER
+    send_string("[logger][page_allocator]: request size ");
+    send_string(itoa(size, pagelog_buffer, HEX));
+#endif
+
     // find available free space
     for(size_t level = order; level <= BLOCKSIZE_MAX_ORDER; level++){
         if(!free_list[level]) continue;
         
         target = free_list[level];
-        ListNode *next = list_remove(target->node);
+        ListNode *next = list_remove(&target->node);
         free_list[level] = (next)? GET_CONTAINER(next, PageBlock, node): NULL;
         break;
     }
     if(!target){
-        _send_line_("[ERROR][page_allocator]: can't find a large enough space", async_send_data);
+        _send_line_("\n[ERROR][page_allocator]: can't find a large enough space", async_send_data);
         return NULL;
     }
-    
+
+#ifdef MEMALLOC_LOGGER
+    send_string(", find block ");
+    send_string(itoa(target->idx, pagelog_buffer, HEX));
+    send_string(" with order ");
+    send_line(itoa(target->status, pagelog_buffer, DEC));
+#endif
+
     // split if find a larger block
     while(target->status > order){
         size_t level = --target->status;
         size_t buddy_idx = GET_BUDDY(target->idx, level);
         page_array[buddy_idx].status = level;
         insert_free_list(page_array + buddy_idx, level);
+#ifdef MEMALLOC_LOGGER
+        send_string("[logger][page_allocator]: split block to 2 buddy, ");
+        send_string(itoa(target->idx, pagelog_buffer, HEX));
+        send_string(", ");
+        send_string(itoa(buddy_idx, pagelog_buffer, HEX));
+        send_string(", order ");
+        send_line(itoa(level, pagelog_buffer, DEC));
+#endif
     }
 
     target->status = PAGE_OCCUPIED;
-    return to_page_address(target->idx);
+    return to_page_address(target);
 }
 
 // ----- Private Functions -----
 void init_block(PageBlock *block, PageStatus status, size_t idx){
     block->status = status;
     block->idx = idx;
-    list_init(block->node);
+    list_init(&block->node);
     insert_free_list(block, status);
 }
 
 void insert_free_list(PageBlock *new_block, PageStatus level){
     if(level < 0) return;
-    ListNode *next = (free_list[level])? free_list[level]->node: NULL;
-    list_add(new_block->node, NULL, next);
+    ListNode *next = (free_list[level])? &free_list[level]->node: NULL;
+    list_add(&new_block->node, NULL, next);
     free_list[level] = new_block;
 }
 
@@ -99,7 +126,7 @@ void *to_page_address(PageBlock *block){
 size_t to_block_idx(void *addr){
     addr_t memaddr = (addr_t) addr;
     if(memaddr > MAX_ADDRESS) {
-        _send_line_("[ERROR][page_allocator]: address to large, can't be translated", sync_send_data);
+        _send_line_("\n[ERROR][page_allocator]: address to large, can't be translated", sync_send_data);
         return 0;
     }
     // else if(memaddr % PAGE_SIZE){

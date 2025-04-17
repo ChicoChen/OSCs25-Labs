@@ -24,4 +24,6 @@ int dts_wrapper(void *arg);
 int tick_wrapper(void *arg);
 int delayed_printline(void *arg);
 
+int demo_page(void *arg);
+
 #endif
