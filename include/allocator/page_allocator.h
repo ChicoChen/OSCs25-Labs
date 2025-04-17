@@ -9,6 +9,7 @@
 #define PAGE_ARRAY_END 0x20000000
 
 int init_page_array(void *start_addr);
+void *page_alloc(size_t size);
 
 
 #endif

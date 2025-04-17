@@ -5,12 +5,6 @@ void delay(unsigned int cycle){
     }
 }
 
-void *align(void *addr, size_t base){
-    if(base & (base - 1)) return NULL; // check if power of 2
-    addr_t mem_addr = (addr_t)addr;
-    return (void *)((mem_addr + base - 1) & ~(base - 1));
-}
-
 void *memcpy(void *str1, void *str2, size_t size){
     for(byte *byte1 = (byte *)str1, *byte2 = (byte *)str2; size > 0; size--){
         *byte1 = *byte2;
@@ -19,6 +13,12 @@ void *memcpy(void *str1, void *str2, size_t size){
     }
 
     return str1;
+}
+
+void *align(void *addr, size_t base){
+    if(base & (base - 1)) return NULL; // check if power of 2
+    addr_t mem_addr = (addr_t)addr;
+    return (void *)((mem_addr + base - 1) & ~(base - 1));
 }
 
 void addr_set(addr_t addr, unsigned int value) {
@@ -34,6 +34,18 @@ uint32_t to_le_u32(uint32_t big_uint){
         big_uint = big_uint >> 8;
     }
     return little_uint;
+}
+
+size_t roundup_pow2(size_t num){
+    if(!num) return 1;
+    num--;
+    num |= num >> 1;
+    num |= num >> 2;
+    num |= num >> 4;
+    num |= num >> 8;
+    num |= num >> 16;
+    num++;
+    return num;
 }
 
 //TODO: fix this
