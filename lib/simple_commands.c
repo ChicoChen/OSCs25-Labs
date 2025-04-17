@@ -69,4 +69,5 @@ int reset(void *arg) {
     int tick = 10;
     addr_set(PM_RSTC, PM_PASSWORD | 0x20);
     addr_set(PM_WDOG, PM_PASSWORD | tick);
+    return 0;
 }

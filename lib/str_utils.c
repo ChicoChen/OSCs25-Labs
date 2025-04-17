@@ -140,7 +140,7 @@ char* strtok(char* str, char* terminators){
     return tok_start;
 }
 
-char *strchr(const char *str, int c){
+char *strchr(char *str, int c){
     while(*str != '\0'){
         if(*str == c) return str;
         str++;

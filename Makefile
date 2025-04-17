@@ -10,11 +10,13 @@ KERNEL = kernel8
 INITRAMFS = initramfs.cpio
 EXCEPTION = exception
 # ---------- Compile flag ----------
-COMPILE_FLAG = -nostdlib -g
+NO_WARN = -Wno-incompatible-library-redeclaration -Wno-asm-operand-widths -Wno-pointer-to-int-cast -Wno-int-to-void-pointer-cast -Wno-c23-extensions
+COMPILE_FLAG = -nostdlib -g $(NO_WARN)
 LLDB_FLAG = -s -S
 MINI_UART_FLAG = -serial null -serial stdio
 INITRAMFS_FLAG = -initrd $(INITRAMFS)
 DTB_FLAG = -dtb bcm2710-rpi-3-b-plus.dtb
+
 # ---------- Dependencies ----------
 LOADER_DEPS = mini_uart str_utils utils
 

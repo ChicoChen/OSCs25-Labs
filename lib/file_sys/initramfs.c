@@ -114,7 +114,7 @@ addr_t find_address(char *filename, unsigned int *filesize_ptr){
 
 int exec_usr_prog(void* args){
     char *prog_name = "sys_call.img";
-    int filesize = 0;
+    size_t filesize = 0;
     addr_t source = find_address(prog_name, &filesize);
     if(!source) return 1;
     

@@ -6,7 +6,7 @@ void list_init(ListNode *node){
     node->prev = NULL;
 }
 
-void *list_add(ListNode* new, ListNode* prev, ListNode* next){
+void list_add(ListNode* new, ListNode* prev, ListNode* next){
     new->next = next;
     new->prev = prev;
 
