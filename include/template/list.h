@@ -4,12 +4,12 @@
 #define LISTNODE_SIZE 16
 typedef struct ListNode
 {
-    ListNode *prev;
-    ListNode *next;
+    struct ListNode *prev;
+    struct ListNode *next;
 } ListNode;
 
 void list_init(ListNode *node);
-void *list_add(ListNode* new, ListNode* prev, ListNode* next);
+void list_add(ListNode* new, ListNode* prev, ListNode* next);
 ListNode *list_remove(ListNode* target);
 
 #endif

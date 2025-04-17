@@ -1,5 +1,5 @@
+#include "basic_type.h"
 #include "str_utils.h"
-
 char *make_str(char *str, char c, size_t len){
     //todo: size check on str
     for(int i = 0; i < len; i++){
@@ -123,9 +123,9 @@ char* strrev(char* str){
 }
 
 char* strtok(char* str, char* terminators){
-    static char *target = 0;
+    static char *target = NULL;
     if(str) target = str;
-    else if(!target || *str == '\0') return 0;
+    else if(!target || *target == '\0') return NULL;
     
     while(strchr(terminators, *target)) target++;
     
