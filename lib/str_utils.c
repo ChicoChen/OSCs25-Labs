@@ -72,6 +72,32 @@ int atoi(char *str, radix rad){
     return num;
 }
 
+uint32_t atoui(char *str, radix rad){
+    uint32_t num = 0;
+    switch(rad){
+    case DEC:
+        while(*str != '\0'){
+            if(*str > '9' || *str < '0') return -1;
+            num *= 10;
+            num += ctoi(*(str++));
+        }
+        break;
+    case HEX:
+        if(str[0] == '0' && str[1] == 'x') str = str + 2;
+        while(*str != '\0'){
+            if(!is_hex_digit(*str)) return -1;
+            num*= 16;
+            num += ctoi(*(str++));
+        }
+        break;
+    default:
+        num = -1; // will become 2's complement
+        break;
+    }
+
+    return num;
+}
+
 int carrtoi(char *str, unsigned int size, radix rad){
     int num = 0;
     int base = 10;
@@ -93,6 +119,25 @@ int carrtoi(char *str, unsigned int size, radix rad){
         else return -1;
     }
     return num;
+}
+
+uint32_t ctoi(char c){
+    if(is_digit(c)) return c - '0';
+    else if(is_hex_digit(c)) return to_lower(c) - 'a' + 10;
+    return -1;
+}
+
+char to_lower(char c){
+    if(c >= 'A' && c <= 'Z') c = 'a' + (c - 'A');
+    return c;
+}
+
+bool is_digit(char c){
+    return c <= '9' && c >= '0';
+}
+bool is_hex_digit(char c){
+    c = to_lower(c);
+    return is_digit(c) || (c >= 'a' && c <= 'f');
 }
 
 //--- String Operation ---

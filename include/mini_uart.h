@@ -25,7 +25,7 @@
 #define DISABLE_IRQs1    (volatile unsigned int*)(ARM_INTERRUPT_BASE + 0x21C)
 #define AUXIRQ          (volatile unsigned int*)(GPIO_BASE + 0x15000)
 
-#define ASYNC_BUFFER_SIZE 256u
+#define ASYNC_BUFFER_SIZE 2048u
 
 typedef struct{
     byte buffer[ASYNC_BUFFER_SIZE];

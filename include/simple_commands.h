@@ -25,5 +25,6 @@ int tick_wrapper(void *arg);
 int delayed_printline(void *arg);
 
 int demo_page(void *arg);
+int demo_free(void *arg);
 
 #endif

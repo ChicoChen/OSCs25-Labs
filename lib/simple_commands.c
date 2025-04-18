@@ -25,6 +25,7 @@ Command commands[] = {
     {"tick", tick_wrapper, "switch on and off timer tick"},
     {"setTimeout", delayed_printline, "echo inputline after assigned seconds"},
     {"demo", demo_page, "demoing page allocation"},
+    {"free", demo_free, "demoing page free"},
     {"reboot", reset, "reboot the device"},
     {0, 0, 0} //terminator
 };
@@ -78,10 +79,17 @@ int delayed_printline(void *arg){
 
 int demo_page(void *arg){
     char *num_page = *((char **)arg);
-    size_t allocate_size = (size_t)atoi(num_page, DEC) * PAGE_SIZE - 1;
+    size_t allocate_size = (size_t)atoui(num_page, DEC) * PAGE_SIZE - 1;
     void *addr = page_alloc(allocate_size);
     send_string("get address ");
     char temp[16];
     send_line(itoa((unsigned int)addr, temp, HEX));
+    return 0;
+}
+
+int demo_free(void *arg){
+    char *page_idx = *((char **)arg);
+    size_t target_idx = (size_t)atoui(page_idx, HEX);
+    page_free((void *)(target_idx * PAGE_SIZE));
     return 0;
 }
