@@ -12,6 +12,6 @@
 
 int init_page_array(void *start_addr);
 void *page_alloc(size_t size);
-
+void page_free(void *addr);
 
 #endif

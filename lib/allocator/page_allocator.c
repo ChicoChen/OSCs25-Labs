@@ -8,7 +8,7 @@
 typedef int PageStatus;
 #define PAGE_GROUPED    -1
 #define PAGE_OCCUPIED   -2
-#define BLOCKSIZE_MAX_ORDER  8 // level 0~8
+#define BLOCK_MAX_ORDER  8 // level 0~8
 
 #define PAGEBLOCK_SIZE (8 + LISTNODE_SIZE)
 typedef struct{
@@ -18,7 +18,7 @@ typedef struct{
 } PageBlock;
 
 PageBlock *page_array = NULL;
-PageBlock *free_list[BLOCKSIZE_MAX_ORDER + 1]; // record head of each length
+PageBlock *free_list[BLOCK_MAX_ORDER + 1]; // record head of each length
 #ifdef MEMALLOC_LOGGER
 char pagelog_buffer[128];
 #endif
@@ -44,9 +44,9 @@ int init_page_array(void *start_addr){
 
     // initialize page array as minimum number of blocks
     for(size_t i = 0; i < total_pages; i++){
-        PageStatus status = (i % (1 << BLOCKSIZE_MAX_ORDER))?
+        PageStatus status = (i % (1 << BLOCK_MAX_ORDER))?
                             PAGE_GROUPED:
-                            BLOCKSIZE_MAX_ORDER;
+                            BLOCK_MAX_ORDER;
         init_block(page_array + i, status, i);
     }
     return 0;
@@ -64,7 +64,7 @@ void *page_alloc(size_t size){
 #endif
 
     // find available free space
-    for(size_t level = order; level <= BLOCKSIZE_MAX_ORDER; level++){
+    for(size_t level = order; level <= BLOCK_MAX_ORDER; level++){
         if(!free_list[level]) continue;
         
         target = free_list[level];
@@ -90,6 +90,7 @@ void *page_alloc(size_t size){
         size_t buddy_idx = GET_BUDDY(target->idx, level);
         page_array[buddy_idx].status = level;
         insert_free_list(page_array + buddy_idx, level);
+        
 #ifdef MEMALLOC_LOGGER
         send_string("[logger][page_allocator]: split block to 2 buddy, ");
         send_string(itoa(target->idx, pagelog_buffer, HEX));
@@ -104,6 +105,36 @@ void *page_alloc(size_t size){
     return to_page_address(target);
 }
 
+void page_free(void *target){
+    addr_t addr = (addr_t) target;
+    if(addr % PAGE_SIZE) return; // if not aligned
+    size_t target_idx = to_block_idx(target);
+    PageBlock* target_block = page_array + target_idx;
+    if(target_block->status != PAGE_OCCUPIED) return; // if not freeable
+    
+    // find order of the target block    
+    for(size_t level = 0; level <= BLOCK_MAX_ORDER; level++){
+        size_t buddy_idx = GET_BUDDY(target_idx, level);
+
+        // when buddy allocated or max level => terminate merging
+        if(page_array[buddy_idx].status == PAGE_OCCUPIED || level == BLOCK_MAX_ORDER){
+            insert_free_list(page_array + target_idx, level);
+            break;
+        }
+
+        // if buddy is empty, need to modify free_list
+        if(page_array[buddy_idx].status >= 0){
+            if(free_list[level] == page_array + buddy_idx){
+                free_list[level] = (page_array[buddy_idx].node.next)?
+                                    GET_CONTAINER(page_array[buddy_idx].node.next, PageBlock, node):
+                                    NULL;
+            }
+            list_remove(&page_array[buddy_idx].node);
+            page_array[buddy_idx].status = PAGE_GROUPED;
+        }
+    }
+}
+
 // ----- Private Functions -----
 void init_block(PageBlock *block, PageStatus status, size_t idx){
     block->status = status;
@@ -112,6 +143,7 @@ void init_block(PageBlock *block, PageStatus status, size_t idx){
     insert_free_list(block, status);
 }
 
+// LIFO insert
 void insert_free_list(PageBlock *new_block, PageStatus level){
     if(level < 0) return;
     ListNode *next = (free_list[level])? &free_list[level]->node: NULL;
