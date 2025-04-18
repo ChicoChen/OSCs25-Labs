@@ -25,10 +25,16 @@ char pagelog_buffer[128];
 
 // ----- Forward Declaration -----
 #define GET_BUDDY(idx, level) (idx ^ (1 << level))
+#define BUDDY_MERGEABLE(buddy_idx, level) (page_array[buddy_idx].status == level || page_array[buddy_idx].status == PAGE_GROUPED)
 
 void init_block(PageBlock *block, PageStatus status, size_t idx);
-void insert_free_list(PageBlock *new_block, PageStatus level);
+size_t merge_page_block(size_t target_idx, size_t buddy_idx, size_t level);
+
+void free_list_insert(PageBlock *new_block, PageStatus level);
+void free_list_remove(size_t idx, size_t level);
+
 size_t calculate_order(size_t size);
+
 void *to_page_address(PageBlock *block);
 size_t to_block_idx(void *addr);
 
@@ -89,7 +95,7 @@ void *page_alloc(size_t size){
         size_t level = --target->status;
         size_t buddy_idx = GET_BUDDY(target->idx, level);
         page_array[buddy_idx].status = level;
-        insert_free_list(page_array + buddy_idx, level);
+        free_list_insert(page_array + buddy_idx, level);
         
 #ifdef MEMALLOC_LOGGER
         send_string("[logger][page_allocator]: split block to 2 buddy, ");
@@ -108,30 +114,51 @@ void *page_alloc(size_t size){
 void page_free(void *target){
     addr_t addr = (addr_t) target;
     if(addr % PAGE_SIZE) return; // if not aligned
+    
     size_t target_idx = to_block_idx(target);
     PageBlock* target_block = page_array + target_idx;
-    if(target_block->status != PAGE_OCCUPIED) return; // if not freeable
+    if(target_block->status != PAGE_OCCUPIED){ // not freeable
+        send_line("[Error][page_allocator]: not an allocated page");
+        return; 
+    }
+
+#ifdef MEMALLOC_LOGGER
+    send_string("[logger][page_allocator]: freeing block ");
+    send_line(itoa(target_idx, pagelog_buffer, HEX));
+#endif
     
-    // find order of the target block    
     for(size_t level = 0; level <= BLOCK_MAX_ORDER; level++){
         size_t buddy_idx = GET_BUDDY(target_idx, level);
+        // smaller buddy shouldn't be grouped by others,
+        if(buddy_idx < target_idx && page_array[buddy_idx].status == PAGE_GROUPED){
+            send_string("[Error][page_allocator]: buddy ");
+            send_string(itoa(buddy_idx, pagelog_buffer, HEX));
+            send_line("shouldn't be grouped");
+            return;
+        }
 
-        // when buddy allocated or max level => terminate merging
-        if(page_array[buddy_idx].status == PAGE_OCCUPIED || level == BLOCK_MAX_ORDER){
-            insert_free_list(page_array + target_idx, level);
+        // when buddy isn't empty or is at max level => terminate merging
+        if(!BUDDY_MERGEABLE(buddy_idx, level) || level == BLOCK_MAX_ORDER){
+#ifdef MEMALLOC_LOGGER
+            send_string("[logger][page_allocator]: generate new free block ");
+            send_string(itoa(target_idx, pagelog_buffer, HEX));
+            send_string(" with order ");
+            send_line(itoa(level, pagelog_buffer, DEC));            
+            
+            if(level != BLOCK_MAX_ORDER){
+                send_string("[logger][page_allocator]: buddy ");
+                send_string(itoa(buddy_idx, pagelog_buffer, HEX));
+                send_string("'s status is ");
+                send_line(itoa(page_array[buddy_idx].status, pagelog_buffer, HEX));
+            }
+#endif
+            page_array[target_idx].status = level;
+            free_list_insert(page_array + target_idx, level);
             break;
         }
-
-        // if buddy is empty, need to modify free_list
-        if(page_array[buddy_idx].status >= 0){
-            if(free_list[level] == page_array + buddy_idx){
-                free_list[level] = (page_array[buddy_idx].node.next)?
-                                    GET_CONTAINER(page_array[buddy_idx].node.next, PageBlock, node):
-                                    NULL;
-            }
-            list_remove(&page_array[buddy_idx].node);
-            page_array[buddy_idx].status = PAGE_GROUPED;
-        }
+        
+        // else, merge target and buddy
+        target_idx = merge_page_block(target_idx, buddy_idx, level);
     }
 }
 
@@ -140,15 +167,47 @@ void init_block(PageBlock *block, PageStatus status, size_t idx){
     block->status = status;
     block->idx = idx;
     list_init(&block->node);
-    insert_free_list(block, status);
+    free_list_insert(block, status);
+}
+
+size_t merge_page_block(size_t target_idx, size_t buddy_idx, size_t level){
+#ifdef MEMALLOC_LOGGER
+    send_string("[logger][page_allocator]: mergeing ");
+    send_string(itoa(target_idx , pagelog_buffer, HEX));
+    send_string(" with buddy ");
+    send_string(itoa(buddy_idx, pagelog_buffer, HEX));
+    send_string(" of status ");
+    send_line(itoa(page_array[buddy_idx].status, pagelog_buffer, HEX));
+#endif
+
+    if(page_array[buddy_idx].status >= 0) free_list_remove(buddy_idx, level);
+
+    // Smaller idx dominate the merged block
+    if(target_idx > buddy_idx){
+        size_t temp = target_idx;
+        target_idx = buddy_idx;
+        buddy_idx = temp;
+    }
+    page_array[buddy_idx].status = PAGE_GROUPED;
+    return target_idx;
 }
 
 // LIFO insert
-void insert_free_list(PageBlock *new_block, PageStatus level){
+void free_list_insert(PageBlock *new_block, PageStatus level){
     if(level < 0) return;
     ListNode *next = (free_list[level])? &free_list[level]->node: NULL;
     list_add(&new_block->node, NULL, next);
     free_list[level] = new_block;
+}
+
+void free_list_remove(size_t idx, size_t level){
+    if(free_list[level] == page_array + idx){ // reassign head if target is the head of list
+        free_list[level] = (page_array[idx].node.next)?
+                            GET_CONTAINER(page_array[idx].node.next, PageBlock, node):
+                            NULL;
+    }
+
+    list_remove(&page_array[idx].node);
 }
 
 void *to_page_address(PageBlock *block){
