@@ -3,9 +3,6 @@
 
 #include "basic_type.h"
 
-#define GET_OFFSET(type, member) ((uint64_t) &((type *)0)->member)
-#define GET_CONTAINER(ptr, type, member) ((type *)((addr_t)ptr - GET_OFFSET(type, member)))
-
 /* actually longer than given cycle due to loop delay*/
 void delay(unsigned int cycle);
 

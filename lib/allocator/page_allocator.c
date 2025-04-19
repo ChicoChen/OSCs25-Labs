@@ -131,8 +131,9 @@ void page_free(void *target){
         size_t buddy_idx = GET_BUDDY(target_idx, level);
         // smaller buddy shouldn't be grouped by others,
         if(buddy_idx < target_idx && page_array[buddy_idx].status == PAGE_GROUPED){
+            char temp_error_buf[16];
             send_string("[Error][page_allocator]: buddy ");
-            send_string(itoa(buddy_idx, pagelog_buffer, HEX));
+            send_string(itoa(buddy_idx, temp_error_buf, HEX));
             send_line("shouldn't be grouped");
             return;
         }
