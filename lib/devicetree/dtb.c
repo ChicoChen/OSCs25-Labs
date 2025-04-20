@@ -2,7 +2,6 @@
 #include "mini_uart.h"
 #include "str_utils.h"
 #include "utils.h"
-#include "file_sys/initramfs.h"
 
 int dtb_parser(callback_func func, addr_t dtb_addr){
     if(dtb_addr < 10) {
@@ -46,16 +45,6 @@ int dtb_parser(callback_func func, addr_t dtb_addr){
         token = to_le_u32(*read_head++);
     }
     return 0;
-}
-
-void find_initramfs(unsigned int type, char *name, void *data, size_t len){
-    if(type == FDT_PROP && strcmp("linux,initrd-start", name)){
-        unsigned int cpio_addr = to_le_u32(*(unsigned int*)data);
-        send_string("initramfs address found: ");
-        char addr[11];
-        send_line(itoa(cpio_addr, addr, HEX));
-        set_initramfs_addr(cpio_addr);
-    }
 }
 
 void print_dts(unsigned int type, char *name, void *data, size_t len){

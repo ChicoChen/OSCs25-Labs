@@ -1,4 +1,5 @@
 #include "simple_commands.h"
+#include "memory_region.h"
 #include "mini_uart.h"
 #include "utils.h"
 #include "str_utils.h"
@@ -10,8 +11,6 @@
 #include "timer/timer.h"
 
 #include "allocator/page_allocator.h"
-
-extern void *_dtb_addr;
 
 Command commands[] = {
     {"help", cmd_help, "show the help menu"},
@@ -56,7 +55,7 @@ int reset(void *arg) {
 };
 
 int dts_wrapper(void *arg){
-    return dtb_parser(find_initramfs, (addr_t)_dtb_addr);
+    return dtb_parser(print_dts, (addr_t)_dtb_addr);
 }
 
 int tick_wrapper(void *arg){

@@ -28,7 +28,6 @@ typedef void(*callback_func)(unsigned int type, char *name, void *data, size_t l
 int dtb_parser(callback_func func,  addr_t dtb_addr);
 
 // callback functions
-void find_initramfs(unsigned int type, char *name, void *data, size_t len);
 void print_dts(unsigned int type, char *name, void *data, size_t len);
 
 static unsigned int depth = 0;

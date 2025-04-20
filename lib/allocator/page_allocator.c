@@ -1,7 +1,8 @@
 #include "allocator/page_allocator.h"
 #include "template/list.h"
-#include "mini_uart.h"
+#include "memory_region.h"
 #include "basic_type.h"
+#include "mini_uart.h"
 #include "utils.h"
 #include "str_utils.h"
 
@@ -45,7 +46,7 @@ int init_page_array(void *start_addr){
     }
 
     start_addr = align(start_addr, 8);
-    size_t total_pages = MAX_ADDRESS / PAGE_SIZE;
+    size_t total_pages = MEM_SIZE / PAGE_SIZE;
     page_array = (PageBlock *)start_addr;
 
     // initialize page array as minimum number of blocks
@@ -217,7 +218,7 @@ void *to_page_address(PageBlock *block){
 
 size_t to_block_idx(void *addr){
     addr_t memaddr = (addr_t) addr;
-    if(memaddr > MAX_ADDRESS) {
+    if(memaddr > MEM_SIZE) {
         _send_line_("\n[ERROR][page_allocator]: address to large, can't be translated", sync_send_data);
         return 0;
     }
