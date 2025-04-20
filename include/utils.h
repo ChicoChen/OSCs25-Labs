@@ -3,6 +3,15 @@
 
 #include "basic_type.h"
 
+#define COND_SWAP(flag, type, var1, var2)   \
+    do{                                     \
+        if (flag) {                         \
+            type temp = var1;               \
+            var1 = var2;                    \
+            var2 = temp;                    \
+        }                                   \
+    }while(0)
+
 /* actually longer than given cycle due to loop delay*/
 void delay(unsigned int cycle);
 

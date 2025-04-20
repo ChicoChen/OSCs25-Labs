@@ -3,16 +3,16 @@
 #include "file_sys/initramfs.h"
 #include "exception/exception.h"
 #include "timer/timer.h"
-#include "allocator/page_allocator.h"
+#include "allocator/startup_allocator.h"
 #include "basic_type.h"
 
 #include "str_utils.h"
 
 void kernel_entry(){
     init_exception();
-    init_page_array((void *)PAGE_ARRAY_START);
     init_core_timer();
     init_uart();
+    init_mem();
     send_line("--------------------");
     init_ramfile();
     send_line("hello world");

@@ -78,7 +78,7 @@ int delayed_printline(void *arg){
 
 int demo_page(void *arg){
     char *num_page = *((char **)arg);
-    size_t allocate_size = (size_t)atoui(num_page, DEC) * PAGE_SIZE - 1;
+    size_t allocate_size = (size_t)atoui(num_page, DEC) * PAGE_SIZE;
     void *addr = page_alloc(allocate_size);
     send_string("get address ");
     char temp[16];

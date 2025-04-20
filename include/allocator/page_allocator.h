@@ -2,14 +2,16 @@
 #define PAGE_FRAME_ALLOCATOR
 
 #include "basic_type.h"
+#include "memory_region.h"
 
 #define PAGE_SIZE 0x1000 // 4kB
-#define PAGE_ARRAY_START 0x10000000
-#define PAGE_ARRAY_END 0x20000000
+#define TOTAL_PAGE (MEM_SIZE / PAGE_SIZE)
 
-#define MEMALLOC_LOGGER
+#define PAGE_ALLOC_LOGGER
+#define PAGE_RESERVE_LOGGER
 
 int init_page_array(void *start_addr);
+void memory_reserve(void *start, size_t size);
 void *page_alloc(size_t size);
 void page_free(void *addr);
 
