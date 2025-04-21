@@ -41,19 +41,19 @@ initramfs:
 	cd $(ROOTFS) && find . | cpio -o -H newc > ../$(INITRAMFS)
 
 src_obj: $(ASSEMBLIES) build
-	$(foreach source_s, $(ASSEMBLIES), \
+	@$(foreach source_s, $(ASSEMBLIES), \
 		clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c $(source_s) \
 				-o $(patsubst $(SRC_DIR)%, $(BUILD_DIR)%, $(source_s:.S=.o));\
 	)
 
 lib_obj: $(LIBFILES) build
-	$(foreach lib_source, $(LIBFILES),\
+	@$(foreach lib_source, $(LIBFILES),\
 		clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c -I $(INCLUDE_DIR) $(lib_source) \
 				-o $(BUILD_DIR)$(LIB_DIR)$(notdir $(patsubst %.S, %.o, $(patsubst %.c, %.o, $(lib_source))));\
 	)
 	
-	clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c -I $(INCLUDE_DIR) $(SRC_DIR)$(LOADER_ENTRY) -o $(BUILD_DIR)$(LOADER_ENTRY:.c=.o)
-	clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c -I $(INCLUDE_DIR) $(SRC_DIR)$(KERNEL_ENTRY) -o $(BUILD_DIR)$(KERNEL_ENTRY:.c=.o)
+	@clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c -I $(INCLUDE_DIR) $(SRC_DIR)$(LOADER_ENTRY) -o $(BUILD_DIR)$(LOADER_ENTRY:.c=.o)
+	@clang --target=aarch64-raspi3-elf -mcpu=cortex-a53 $(COMPILE_FLAG) -c -I $(INCLUDE_DIR) $(SRC_DIR)$(KERNEL_ENTRY) -o $(BUILD_DIR)$(KERNEL_ENTRY:.c=.o)
 
 loader: src_obj lib_obj
 	ld.lld -m aarch64elf -T $(SRC_DIR)$(LOADER).ld -o $(BUILD_DIR)$(LOADER).elf \

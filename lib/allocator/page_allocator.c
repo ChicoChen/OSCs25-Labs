@@ -42,7 +42,6 @@ size_t calculate_order(size_t size);
 size_t segment_block_seq(size_t start_idx, size_t size);
 
 void *to_page_address(PageBlock *block);
-size_t to_block_idx(void *addr);
 
 // ----- Public Interface -----
 int init_page_array(void *start_addr){
@@ -223,6 +222,20 @@ void page_free(void *target){
     }
 }
 
+size_t to_block_idx(void *addr){
+    addr_t memaddr = (addr_t) addr;
+    if(memaddr > MEM_SIZE) {
+        _send_line_("\n[ERROR][page_allocator]: address to large, can't be translated", sync_send_data);
+        return 0;
+    }
+    // else if(memaddr % PAGE_SIZE){
+    //     _send_line_("[ERROR][page_allocator]: address need to be aligned to page size", sync_send_data);
+    //     return 0;
+    // }
+
+    return (size_t) memaddr / PAGE_SIZE;
+}
+
 // ----- Private Functions -----
 void init_block(PageBlock *block, PageStatus status, size_t idx){
     block->status = status;
@@ -300,18 +313,4 @@ size_t segment_block_seq(size_t start_idx, size_t size){
 
 void *to_page_address(PageBlock *block){
     return (void *)(block->idx * PAGE_SIZE);
-}
-
-size_t to_block_idx(void *addr){
-    addr_t memaddr = (addr_t) addr;
-    if(memaddr > MEM_SIZE) {
-        _send_line_("\n[ERROR][page_allocator]: address to large, can't be translated", sync_send_data);
-        return 0;
-    }
-    // else if(memaddr % PAGE_SIZE){
-    //     _send_line_("[ERROR][page_allocator]: address need to be aligned to page size", sync_send_data);
-    //     return 0;
-    // }
-
-    return (size_t) memaddr / PAGE_SIZE;
 }

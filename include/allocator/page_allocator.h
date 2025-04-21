@@ -15,4 +15,6 @@ void memory_reserve(void *start, size_t size);
 void *page_alloc(size_t size);
 void page_free(void *addr);
 
+size_t to_block_idx(void *addr);
+
 #endif
