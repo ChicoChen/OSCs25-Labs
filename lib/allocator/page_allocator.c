@@ -103,6 +103,7 @@ void memory_reserve(void *start, size_t size){
         }
         
         page_array[start_idx].status = PAGE_RESERVED;
+        free_list_remove(start_idx, sub_block_order);
         size_t next_start = start_idx + (1 << sub_block_order);
 #ifdef PAGE_RESERVE_LOGGER
         send_string("[logger][mem_reserve]: block ");
@@ -115,7 +116,7 @@ void memory_reserve(void *start, size_t size){
     }
 
 #ifdef PAGE_RESERVE_LOGGER
-    send_line("[logger][mem_reserve]: done");
+    async_send_data('\n');
 #endif
 }
 
@@ -151,7 +152,7 @@ void *page_alloc(size_t size){
 
     // split if find a larger block
     while(target->status > order){
-        size_t level = --target->status;
+        size_t level = --(target->status);
         size_t buddy_idx = GET_BUDDY(target->idx, level);
         page_array[buddy_idx].status = level;
         free_list_insert(page_array + buddy_idx, level);
