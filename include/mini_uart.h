@@ -25,19 +25,9 @@
 #define DISABLE_IRQs1    (volatile unsigned int*)(ARM_INTERRUPT_BASE + 0x21C)
 #define AUXIRQ          (volatile unsigned int*)(GPIO_BASE + 0x15000)
 
-#define ASYNC_BUFFER_SIZE 2048u
-
-typedef struct{
-    byte buffer[ASYNC_BUFFER_SIZE];
-    size_t head;
-    size_t len;
-}AsyncBuf;
 
 void disable_aux_interrupt();
 void enable_aux_interrupt();
-
-static AsyncBuf async_recv;
-static AsyncBuf async_tran;
 
 void init_uart();
 // ----- read -----

@@ -11,21 +11,42 @@
 #include "timer/timer.h"
 
 #include "allocator/page_allocator.h"
+#include "allocator/dynamic_allocator.h"
+
+int cmd_help(void* args);
+int hello_world(void* args);
+int reset(void *arg);
+
+int dts_wrapper(void *arg);
+int tick_wrapper(void *arg);
+int delayed_printline(void *arg);
+
+int demo_page_alloc(void *arg);
+int demo_page_free(void *arg);
+int demo_dyna_alloc(void *arg);
+int demo_dyna_free(void *arg);
 
 Command commands[] = {
-    {"help", cmd_help, "show the help menu"},
-    {"hello", hello_world, "print \"Hello world!\""},
-    {"mailbox", mailbox_entry, "show mailbox information"},
-    {"ls", list_ramfile, "list files in ramdisk"},
-    {"cat", view_ramfile, "show file content"},
-    {"memalloc", memalloc, "allocate memory for a string."},
-    {"dts", dts_wrapper, "show dts content."},
-    {"exec", exec_usr_prog, "execute user program in initramfs (target currently fixed)"},
-    {"tick", tick_wrapper, "switch on and off timer tick"},
-    {"setTimeout", delayed_printline, "echo inputline after assigned seconds"},
-    {"demo", demo_page, "demoing page allocation"},
-    {"free", demo_free, "demoing page free"},
-    {"reboot", reset, "reboot the device"},
+    {"help", cmd_help,          "show the help menu"},
+    {"hello", hello_world,      "print \"Hello world!\""},
+    {"mailbox", mailbox_entry,  "show mailbox information"},
+
+    {"ls", list_ramfile,        "list files in ramdisk"},
+    {"cat", view_ramfile,       "show file content"},
+    {"exec", exec_usr_prog,     "execute user program in initramfs (target currently fixed)"},
+    {"dts", dts_wrapper,        "show dts content."},
+    
+    {"tick", tick_wrapper,      "switch on and off timer tick"},
+    {"setTimeout", delayed_printline, 
+                                "echo inputline after assigned seconds"},
+        
+    {"memalloc", memalloc,      "allocate memory for a string."},
+    {"palloc", demo_page_alloc, "demoing page allocation"},
+    {"pfree", demo_page_free,   "demoing page free"},
+    {"dalloc", demo_dyna_alloc, "demoing page allocation"},
+    {"dfree", demo_dyna_free,   "demoing page free"},
+
+    {"reboot", reset,           "reboot the device"},
     {0, 0, 0} //terminator
 };
 
@@ -75,8 +96,7 @@ int delayed_printline(void *arg){
     return add_event(offset, send_void_line, message);
 }
 
-
-int demo_page(void *arg){
+int demo_page_alloc(void *arg){
     char *num_page = *((char **)arg);
     size_t allocate_size = (size_t)atoui(num_page, DEC) * PAGE_SIZE;
     void *addr = page_alloc(allocate_size);
@@ -86,9 +106,24 @@ int demo_page(void *arg){
     return 0;
 }
 
-int demo_free(void *arg){
+int demo_page_free(void *arg){
     char *page_idx = *((char **)arg);
     size_t target_idx = (size_t)atoui(page_idx, HEX);
     page_free((void *)(target_idx * PAGE_SIZE));
+    return 0;
+}
+
+int demo_dyna_alloc(void *arg){
+    char *queried_size = *((char **)arg);
+    size_t query = (size_t)atoui(queried_size, DEC);
+    void *addr = kmalloc(query);
+    send_string("get address ");
+    char temp[16];
+    send_line(itoa((unsigned int)addr, temp, HEX));
+    return 0;
+}
+
+int demo_dyna_free(void *arg){
+    
     return 0;
 }

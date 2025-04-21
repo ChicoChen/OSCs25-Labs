@@ -16,15 +16,4 @@ typedef struct{
 
 extern Command commands[];
 
-int cmd_help(void* args);
-int hello_world(void* args);
-int reset(void *arg);
-
-int dts_wrapper(void *arg);
-int tick_wrapper(void *arg);
-int delayed_printline(void *arg);
-
-int demo_page(void *arg);
-int demo_free(void *arg);
-
 #endif
