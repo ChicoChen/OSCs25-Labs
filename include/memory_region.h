@@ -26,8 +26,10 @@ extern void *_stack_top;
 
 // dtb address, defined in kernel8.S
 extern void *_dtb_addr;
+extern size_t dtb_size;
 
 // reserved region for .cpio, defined file_sys/initramfs.c
 extern void *initramfs_addr;
+extern size_t initramfs_size;
 
 #endif

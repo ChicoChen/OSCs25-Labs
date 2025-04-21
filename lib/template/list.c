@@ -18,6 +18,7 @@ ListNode *list_remove(ListNode* target){
     if(!target) return NULL;
     if(target->prev) target->prev->next = target->next;
     if(target->next) target->next->prev = target->prev;
+    ListNode* temp = target->next;
     list_init(target);
-    return target->next;
+    return temp;
 }

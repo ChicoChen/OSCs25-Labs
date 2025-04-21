@@ -8,13 +8,14 @@
 #include "mini_uart.h"
 
 void *initramfs_addr = NULL;
+size_t initramfs_size = 0;
 char* newc_magic_str = "070701";
 char* terminator = "TRAILER!!!";
 int terminator_size = 11;
 
 // ----- forward declaration -----
 void set_initramfs(unsigned int type, char *name, void *data, size_t len);
-
+size_t get_ramfs_size();
 // ----- public interface -----
 /*
 TODO: restructure initramfs parsing, maybe add a struct to record file structure.
@@ -23,6 +24,7 @@ TODO: restructure initramfs parsing, maybe add a struct to record file structure
 
 void init_ramfile(){
     dtb_parser(set_initramfs, (addr_t)_dtb_addr);
+    get_ramfs_size();
 }
 
 int list_ramfile(void *args){
@@ -90,7 +92,6 @@ int view_ramfile(void *args){
     }
 
     for(int i = 0; i < filesize; i++){
-        // TODO: long data like "peepo.txt" has corruption issue
         if(mem[i] == '\n') async_send_data('\r');
         async_send_data(mem[i]);
     }
@@ -156,6 +157,37 @@ void set_initramfs(unsigned int type, char *name, void *data, size_t len){
         send_line(itoa(cpio_addr, addr, HEX));
         initramfs_addr = (void *)cpio_addr;
     }
+}
+
+size_t get_ramfs_size(){
+    if(!initramfs_addr) init_ramfile();
+
+    byte *mem = initramfs_addr;
+    while(1){
+        cpio_newc_header *header = (cpio_newc_header*)mem;
+        if(!check_magic(header->c_magic)) return 1;
+        int filesize = carrtoi(header->c_filesize, 8, HEX);
+        int pathsize = carrtoi(header->c_namesize, 8, HEX);
+
+        mem += HEADER_SIZE;
+        if(strcmp(mem, terminator)) {
+            mem += pathsize;
+            while(((unsigned int) mem) % 4) mem++;
+            break;
+        }
+
+        mem += pathsize;
+        while(((unsigned int) mem) % 4) mem++;
+
+        mem += filesize;
+        while(((unsigned int) mem) % 4) mem++;
+    }
+    
+    initramfs_size = (size_t)mem - (size_t)initramfs_addr;
+    char size_arr[16];
+    send_string("initramfs size: ");
+    send_line(itoa(initramfs_size, size_arr, HEX));
+    return initramfs_size;
 }
 
 int check_magic(byte *magic){

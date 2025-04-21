@@ -259,6 +259,7 @@ void free_list_insert(PageBlock *new_block, PageStatus level){
 
 // remove the first from free_list
 PageBlock *free_list_pop(size_t level){
+    if(level < 0) return NULL;
     PageBlock *head = free_list[level];
     ListNode *next = list_remove(&head->node);
     free_list[level] = (next)? GET_CONTAINER(next, PageBlock, node): NULL;
@@ -266,6 +267,7 @@ PageBlock *free_list_pop(size_t level){
 }
 
 void free_list_remove(size_t idx, size_t level){
+    if(level < 0) return;
     if(free_list[level] == page_array + idx){ // reassign head if target is the head of list
         free_list[level] = (page_array[idx].node.next)?
                             GET_CONTAINER(page_array[idx].node.next, PageBlock, node):
