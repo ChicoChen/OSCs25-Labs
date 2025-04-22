@@ -8,11 +8,14 @@
     - Allocate page frame array needed for (2)
     - Reserve memory region for other system component
 2. page frame allocator
-    - Implemented using Buddy system
-    - page-based (4KB) allocation on available memory region
+    - Implementation based on Buddy system
+    - Page-based (4KB) allocation on available memory region
 3. dynamic allocator
-    - Allocate smaller memory region within allocated page
-    - Implemented using "header & payload" approach
+    - Allocate smaller memory region within allocated page.
+    - Implemented slab-based alternative.
+    - Categorize *cache* based on object's size instead of object type.
+    - Each *slab* is composed of one page.
+    - TODO: refer to `struct page` of linux kernel and refine my slab allocator
 
 ### Todo:
 ~~1. Review Buddy system~~

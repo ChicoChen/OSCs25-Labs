@@ -16,5 +16,6 @@ void *page_alloc(size_t size);
 void page_free(void *addr);
 
 size_t to_block_idx(void *addr);
-
+void *to_page_address(size_t block_idx);
+bool is_allocated(void *addr);
 #endif

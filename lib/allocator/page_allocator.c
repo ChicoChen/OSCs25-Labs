@@ -41,8 +41,6 @@ void free_list_remove(size_t idx, size_t level);
 size_t calculate_order(size_t size);
 size_t segment_block_seq(size_t start_idx, size_t size);
 
-void *to_page_address(PageBlock *block);
-
 // ----- Public Interface -----
 int init_page_array(void *start_addr){
     for(size_t i = 0; i <= 8; i++){
@@ -167,7 +165,7 @@ void *page_alloc(size_t size){
     }
 
     target->status = PAGE_OCCUPIED;
-    return to_page_address(target);
+    return to_page_address(target->idx);
 }
 
 void page_free(void *target){
@@ -228,12 +226,22 @@ size_t to_block_idx(void *addr){
         _send_line_("\n[ERROR][page_allocator]: address to large, can't be translated", sync_send_data);
         return 0;
     }
-    // else if(memaddr % PAGE_SIZE){
-    //     _send_line_("[ERROR][page_allocator]: address need to be aligned to page size", sync_send_data);
-    //     return 0;
-    // }
 
     return (size_t) memaddr / PAGE_SIZE;
+}
+
+void *to_page_address(size_t block_idx){
+    return (void *)(block_idx * PAGE_SIZE);
+}
+
+bool is_allocated(void *addr){
+    size_t page_idx = to_block_idx(addr);
+    size_t parent = page_idx;
+    while(page_array[parent].status == PAGE_GROUPED){
+        parent &= (parent - 1);
+    }
+
+    return BOOL(page_array[parent].status == PAGE_OCCUPIED);
 }
 
 // ----- Private Functions -----
@@ -309,8 +317,4 @@ size_t segment_block_seq(size_t start_idx, size_t size){
         }
     }
     return -1;
-}
-
-void *to_page_address(PageBlock *block){
-    return (void *)(block->idx * PAGE_SIZE);
 }

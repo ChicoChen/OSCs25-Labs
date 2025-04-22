@@ -4,6 +4,8 @@
 #include "mini_uart.h"
 #include "str_utils.h"
 
+#define ALIGN(target, alignment) ((target + alignment - 1) & ~(alignment - 1))
+
 #define OBJ_STEP        16
 #define OBJ_MIN_SIZE    16
 #define OBJ_MAX_SIZE    1024
@@ -12,7 +14,8 @@
 #define TOTAL_CACHE ((OBJ_MAX_SIZE - OBJ_MIN_SIZE)/ OBJ_STEP + 1)
 #define BITMAP_LENGTH (PAGE_SIZE / OBJ_MIN_SIZE) // 256
 
-#define PAGE_HEADER_SIZE (12 + LISTNODE_SIZE + BITMAP_LENGTH) // 284
+#define PAGE_HEADER_SIZE    (12 + LISTNODE_SIZE + BITMAP_LENGTH) // 284
+#define ELEMENT_OFFSET      ALIGN(PAGE_HEADER_SIZE, OBJ_ALIGN)  // 288
 typedef struct PageHeader{
     uint32_t obj_size;
     uint32_t capacity;
@@ -21,20 +24,23 @@ typedef struct PageHeader{
     uint64_t bitmap[BITMAP_LENGTH / 64]; // empty -> 0, occupied -> 1
 }PageHeader;
 
-#define ALIGN(target, alignment) ((target + alignment - 1) & ~(alignment - 1))
-
 // ----- local data -----
 PageHeader *memory_pool[TOTAL_CACHE];
 #ifdef DYNAMIC_ALLOC_LOGGER
-    char logger_buffer[32];
+char logger_buffer[32];
 #endif
 
 // ----- forware declarations -----
+void init_page_header(PageHeader *header, size_t obj_size);
+void clear_page_header(PageHeader *header);
+
+
 PageHeader *find_avail_slab(size_t pool_idx);
 void *alloc_obj(PageHeader *target_page);
+bool free_obj(void* target_addr, PageHeader* slab);
 
-void init_page_header(PageHeader *header, size_t obj_size);
 size_t fill_bitmap(PageHeader *target_page);
+inline size_t get_pool_idx(size_t obj_size);
 
 inline bool is_full(PageHeader *slab);
 
@@ -46,12 +52,10 @@ void init_memory_pool(){
 }
 
 void *kmalloc(size_t size){
-    size_t pool_idx;
-    if(size < OBJ_MIN_SIZE) pool_idx = 0;
-    else pool_idx = ALIGN(size - OBJ_MIN_SIZE, OBJ_STEP) / OBJ_STEP;
+    size_t pool_idx = get_pool_idx(size);
 #ifdef DYNAMIC_ALLOC_LOGGER
     send_string("[logger][dynamic_alloc]: kmalloc() size ");
-    send_line(itoa(size, logger_buffer, DEC));
+    send_string(itoa(size, logger_buffer, DEC));
 #endif
 
     PageHeader *target_slab = find_avail_slab(pool_idx);
@@ -61,22 +65,64 @@ void *kmalloc(size_t size){
 }
 
 void kfree(void *target){
+    if(!is_allocated(target)){
+        send_line("[ERROR][dynamic alloc]: address is not allocated by dyna_allocator");
+        return;
+    }
+    size_t page_idx = to_block_idx(target);
+    PageHeader *slab = (PageHeader *)to_page_address(page_idx);
+    if(!free_obj(target, slab)) return;
 
+    if(slab->avail == slab->capacity
+        && memory_pool[get_pool_idx(slab->obj_size)] != slab)
+    {
+#ifdef DYNAMIC_ALLOC_LOGGER
+        send_line("[logger][dynamic_alloc]: freeing empty slab");
+#endif
+        // clear_page_header(slab); //don't really need to since no other module use page_alloc
+        page_free((void *)slab);
+    }
 }
 
 // ----- private functions -----
 
 // TODO: currently one slab contains only one page 
 //       maybe allocate more than one page for larger obj?
+
+void init_page_header(PageHeader *header, size_t obj_size){
+    header->obj_size = obj_size;
+    header->capacity = (PAGE_SIZE - ALIGN(PAGE_HEADER_SIZE, OBJ_ALIGN)) / obj_size;
+    header->avail = header->capacity;
+    
+    list_init(&header->node);
+    for(size_t i = 0; i < BITMAP_LENGTH / 64; i++){
+        header->bitmap[i] = 0;
+    }
+}
+
+void clear_page_header(PageHeader *header){
+    header->obj_size = 0;
+    header->capacity = 0;
+    header->avail = 0;
+    
+    list_init(&header->node);
+    for(size_t i = 0; i < BITMAP_LENGTH / 64; i++){
+        header->bitmap[i] = 0;
+    }
+}
+
 PageHeader *find_avail_slab(size_t pool_idx){
     if(pool_idx >= TOTAL_CACHE) return NULL;
     size_t obj_size = pool_idx * OBJ_STEP + OBJ_MIN_SIZE;
-    
-    // if no page is allocated
+#ifdef DYNAMIC_ALLOC_LOGGER
+    send_string(", pool-");
+    send_line(itoa(obj_size, logger_buffer, DEC));        
+#endif
+
+// if no page is allocated
     if(!memory_pool[pool_idx]){
 #ifdef DYNAMIC_ALLOC_LOGGER
-        send_string("[logger][dynamic_alloc]: alloc new slab for pool-");
-        send_line(itoa(obj_size, logger_buffer, DEC));
+        send_line("[logger][dynamic_alloc]: allocating new slab");
 #endif
         memory_pool[pool_idx] = (PageHeader *)page_alloc(PAGE_SIZE);
         init_page_header(memory_pool[pool_idx], obj_size);
@@ -113,8 +159,7 @@ void *alloc_obj(PageHeader *target_page){
     target_page->avail--;   
 
     addr_t page_addr = (addr_t)target_page;
-    addr_t element_offset = ALIGN(PAGE_HEADER_SIZE, OBJ_ALIGN);
-    void *obj_address = (void *) (page_addr + element_offset + obj_idx * target_page->obj_size);
+    void *obj_address = (void *) (page_addr + ELEMENT_OFFSET + obj_idx * target_page->obj_size);
 #ifdef DYNAMIC_ALLOC_LOGGER
     send_string("[logger][dynamic_alloc]: allocate object at idx ");
     send_string(itoa(obj_idx, logger_buffer, DEC));
@@ -127,15 +172,29 @@ void *alloc_obj(PageHeader *target_page){
     return obj_address;
 }
 
-void init_page_header(PageHeader *header, size_t obj_size){
-    header->obj_size = obj_size;
-    header->capacity = (PAGE_SIZE - ALIGN(PAGE_HEADER_SIZE, OBJ_ALIGN)) / obj_size;
-    header->avail = header->capacity;
-    
-    list_init(&header->node);
-    for(size_t i = 0; i < BITMAP_LENGTH / 64; i++){
-        header->bitmap[i] = 0;
+bool free_obj(void* target_addr, PageHeader* slab){
+    size_t obj_size = slab->obj_size;
+    size_t target_offset = (addr_t)target_addr - (addr_t)slab;
+    if(target_offset <  ELEMENT_OFFSET) {
+        send_line("[ERROR][dynamic alloc]: addr invalid, overlapped with slab header");
+        return false;
     }
+    
+    size_t obj_idx = (target_offset - ELEMENT_OFFSET) / obj_size;
+    if(obj_idx > slab->capacity){
+        send_line("[ERROR][dynamic alloc]: addr invalid, exceed slab's capacity");
+        return false;
+    }
+
+    slab->bitmap[obj_idx/64] &= ~(1 << (obj_idx % 64));
+    slab->avail++;
+#ifdef DYNAMIC_ALLOC_LOGGER
+    send_string("[logger][dynamic_alloc]: erased object at slot ");
+    send_string(itoa(obj_idx, logger_buffer, DEC));
+    send_string(" remaining objects: ");
+    send_line(itoa(slab->capacity - slab->avail, logger_buffer, DEC));
+#endif
+    return true;
 }
 
 size_t fill_bitmap(PageHeader *target_page){
@@ -161,9 +220,8 @@ bool is_full(PageHeader *slab){
     return slab->avail == 0;
 }
 
-void *get_first_element(void *page_ptr){
-    addr_t page_addr = (addr_t) page_ptr;
-    page_addr = page_addr - (page_addr % PAGE_SIZE);
-    addr_t element_offset = (PAGE_HEADER_SIZE + OBJ_ALIGN - 1) & ~(OBJ_ALIGN - 1);
-    return (void *)(page_addr + element_offset);
+size_t get_pool_idx(size_t obj_size){
+    return (obj_size < OBJ_MIN_SIZE)
+            ? 0
+            : ALIGN(obj_size - OBJ_MIN_SIZE, OBJ_STEP) / OBJ_STEP;
 }

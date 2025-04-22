@@ -25,6 +25,7 @@ int demo_page_alloc(void *arg);
 int demo_page_free(void *arg);
 int demo_dyna_alloc(void *arg);
 int demo_dyna_free(void *arg);
+int seq_alloc_free(void *arg);
 
 Command commands[] = {
     {"help", cmd_help,          "show the help menu"},
@@ -41,10 +42,11 @@ Command commands[] = {
                                 "echo inputline after assigned seconds"},
         
     {"memalloc", memalloc,      "allocate memory for a string."},
-    {"palloc", demo_page_alloc, "demoing page allocation"},
-    {"pfree", demo_page_free,   "demoing page free"},
-    {"dalloc", demo_dyna_alloc, "demoing page allocation"},
-    {"dfree", demo_dyna_free,   "demoing page free"},
+    {"palloc", demo_page_alloc, "demoing page_alloc())"},
+    {"pfree", demo_page_free,   "demoing page_free()"},
+    {"kalloc", demo_dyna_alloc, "demoing kmalloc()"},
+    {"kfree", demo_dyna_free,   "demoing kfree()"},
+    {"memdemo", seq_alloc_free, "mem demo case"},
 
     {"reboot", reset,           "reboot the device"},
     {0, 0, 0} //terminator
@@ -117,13 +119,29 @@ int demo_dyna_alloc(void *arg){
     char *queried_size = *((char **)arg);
     size_t query = (size_t)atoui(queried_size, DEC);
     void *addr = kmalloc(query);
-    send_string("get address ");
+    send_string("\nget address ");
     char temp[16];
     send_line(itoa((unsigned int)addr, temp, HEX));
     return 0;
 }
 
 int demo_dyna_free(void *arg){
-    
+    char *target_address = *((char **)arg);
+    void *query = (void *)atoui(target_address, HEX);
+    kfree(query);
+    return 0;
+}
+
+int seq_alloc_free(void *arg){
+    void **addrs;
+    addrs = page_alloc(2000 * 8);
+    for(size_t i = 0; i < 2000; i++){
+        addrs[i] = page_alloc(1 * PAGE_SIZE);
+    }
+
+    for(size_t i = 0; i < 2000; i++){
+        page_free(addrs[i]);
+    }
+
     return 0;
 }
