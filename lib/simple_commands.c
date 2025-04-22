@@ -134,12 +134,12 @@ int demo_dyna_free(void *arg){
 
 int seq_alloc_free(void *arg){
     void **addrs;
-    addrs = page_alloc(2000 * 8);
-    for(size_t i = 0; i < 2000; i++){
-        addrs[i] = page_alloc(1 * PAGE_SIZE);
+    addrs = page_alloc(256 * 8);
+    for(size_t i = 1; i < 256; i++){
+        addrs[i] = page_alloc(i * PAGE_SIZE);
     }
 
-    for(size_t i = 0; i < 2000; i++){
+    for(size_t i = 1; i < 256; i++){
         page_free(addrs[i]);
     }
 

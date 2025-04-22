@@ -40,6 +40,7 @@ void free_list_remove(size_t idx, size_t level);
 
 size_t calculate_order(size_t size);
 size_t segment_block_seq(size_t start_idx, size_t size);
+char* status_to_string(size_t page_idx, char *pagelog_buffer);
 
 // ----- Public Interface -----
 int init_page_array(void *start_addr){
@@ -207,7 +208,7 @@ void page_free(void *target){
                 send_string("[logger][page_allocator]: terminate because buddy ");
                 send_string(itoa(buddy_idx, pagelog_buffer, HEX));
                 send_string("'s status is ");
-                send_line(itoa(page_array[buddy_idx].status, pagelog_buffer, HEX));
+                send_line(status_to_string(buddy_idx, pagelog_buffer));
             }
 #endif
             page_array[target_idx].status = level;
@@ -254,12 +255,14 @@ void init_block(PageBlock *block, PageStatus status, size_t idx){
 
 size_t merge_page_block(size_t target_idx, size_t buddy_idx, size_t level){
 #ifdef PAGE_ALLOC_LOGGER
-    send_string("[logger][page_allocator]: mergeing ");
-    send_string(itoa(target_idx , pagelog_buffer, HEX));
-    send_string(" with buddy ");
-    send_string(itoa(buddy_idx, pagelog_buffer, HEX));
-    send_string(" of status ");
-    send_line(itoa(page_array[buddy_idx].status, pagelog_buffer, HEX));
+    if(page_array[buddy_idx].status >= 0){
+        send_string("[logger][page_allocator]: mergeing ");
+        send_string(itoa(target_idx , pagelog_buffer, HEX));
+        send_string(" with buddy ");
+        send_string(itoa(buddy_idx, pagelog_buffer, HEX));
+        send_string(" of status ");
+        send_line(status_to_string(buddy_idx, pagelog_buffer));
+    }
 #endif
 
     if(page_array[buddy_idx].status >= 0) free_list_remove(buddy_idx, level);
@@ -317,4 +320,18 @@ size_t segment_block_seq(size_t start_idx, size_t size){
         }
     }
     return -1;
+}
+
+char* status_to_string(size_t page_idx, char *pagelog_buffer){
+    switch (page_array[page_idx].status)
+    {
+    case PAGE_GROUPED:
+    return "GROUPED";
+    case PAGE_OCCUPIED:
+        return "OCCUPIED";
+    case PAGE_RESERVED:
+        return "RESERVED";
+    default:
+        return itoa(page_array[page_idx].status, pagelog_buffer, HEX);
+    }
 }
