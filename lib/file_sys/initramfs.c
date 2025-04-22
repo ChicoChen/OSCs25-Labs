@@ -1,18 +1,34 @@
 #include "file_sys/initramfs.h"
+#include "devicetree/dtb.h"
 #include "exception/exception.h"
+#include "memory_region.h"
+#include "base_address.h"
+#include "utils.h"
 #include "str_utils.h"
 #include "mini_uart.h"
 
+void *initramfs_addr = NULL;
+size_t initramfs_size = 0;
 char* newc_magic_str = "070701";
 char* terminator = "TRAILER!!!";
 int terminator_size = 11;
 
+// ----- forward declaration -----
+void set_initramfs(unsigned int type, char *name, void *data, size_t len);
+size_t get_ramfs_size();
+// ----- public interface -----
 /*
 TODO: restructure initramfs parsing, maybe add a struct to record file structure.
       Which prevent redundent repeated file parsing .
 */
+
+void init_ramfile(){
+    dtb_parser(set_initramfs, (addr_t)_dtb_addr);
+    get_ramfs_size();
+}
+
 int list_ramfile(void *args){
-    if(!initramfs_addr) return 1;
+    if(!initramfs_addr) init_ramfile();
 
     char buffer[LS_BUFFER_SIZE];
     byte *mem = initramfs_addr;
@@ -46,7 +62,7 @@ int list_ramfile(void *args){
 }
 
 int view_ramfile(void *args){
-    if(!initramfs_addr) return 1;
+    if(!initramfs_addr) init_ramfile();
 
     char *filename = *(char**) args;
     if(filename == NULL) return 1;
@@ -76,7 +92,6 @@ int view_ramfile(void *args){
     }
 
     for(int i = 0; i < filesize; i++){
-        // TODO: long data like "peepo.txt" has corruption issue
         if(mem[i] == '\n') async_send_data('\r');
         async_send_data(mem[i]);
     }
@@ -86,7 +101,7 @@ int view_ramfile(void *args){
 }
 
 addr_t find_address(char *filename, unsigned int *filesize_ptr){
-    if(!initramfs_addr) return 0;
+    if(!initramfs_addr) init_ramfile();
     else if(filename == NULL) return 0;
 
     byte *mem = initramfs_addr;
@@ -114,7 +129,7 @@ addr_t find_address(char *filename, unsigned int *filesize_ptr){
 
 int exec_usr_prog(void* args){
     char *prog_name = "sys_call.img";
-    int filesize = 0;
+    size_t filesize = 0;
     addr_t source = find_address(prog_name, &filesize);
     if(!source) return 1;
     
@@ -127,9 +142,52 @@ int exec_usr_prog(void* args){
     return 0;
 }
 
-//----------------------------------------
-void set_initramfs_addr(addr_t addr){
-    initramfs_addr = (byte *)addr;
+// ----- private members -----
+
+/// @brief callback func provide to dtb_parser to find and set address of initramfs
+/// @param type Token type of this data in dtb (should be property)
+/// @param name name of this property
+/// @param data big_endien interpret of address
+/// @param len 
+void set_initramfs(unsigned int type, char *name, void *data, size_t len){
+    if(type == FDT_PROP && strcmp("linux,initrd-start", name)){
+        unsigned int cpio_addr = to_le_u32(*(unsigned int*)data);
+        send_string("initramfs address found: ");
+        char addr[11];
+        send_line(itoa(cpio_addr, addr, HEX));
+        initramfs_addr = (void *)cpio_addr;
+    }
+}
+
+size_t get_ramfs_size(){
+    if(!initramfs_addr) init_ramfile();
+
+    byte *mem = initramfs_addr;
+    while(1){
+        cpio_newc_header *header = (cpio_newc_header*)mem;
+        if(!check_magic(header->c_magic)) return 1;
+        int filesize = carrtoi(header->c_filesize, 8, HEX);
+        int pathsize = carrtoi(header->c_namesize, 8, HEX);
+
+        mem += HEADER_SIZE;
+        if(strcmp(mem, terminator)) {
+            mem += pathsize;
+            while(((unsigned int) mem) % 4) mem++;
+            break;
+        }
+
+        mem += pathsize;
+        while(((unsigned int) mem) % 4) mem++;
+
+        mem += filesize;
+        while(((unsigned int) mem) % 4) mem++;
+    }
+    
+    initramfs_size = (size_t)mem - (size_t)initramfs_addr;
+    char size_arr[16];
+    send_string("initramfs size: ");
+    send_line(itoa(initramfs_size, size_arr, HEX));
+    return initramfs_size;
 }
 
 int check_magic(byte *magic){

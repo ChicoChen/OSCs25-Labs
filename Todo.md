@@ -1,11 +1,10 @@
 # TODOs
 With priority:
 
-1. Fix all headers, put private members to .c file
-2. Intergrate link-list template
-3. Universally intergrate basic_type.h
-4. Make up for the missing document of each lab
-5. Initramfs parsing in `initramfs.c`
-6. Compile path without `-g` option
-7. Refine parsing in device tree
-8. Enlarge asynchronous r/w buffer size
+- Fix all headers, put private members to .c file.
+- Universally intergrate basic_type.h.
+- Make up for the missing document of each lab.
+- Initramfs parsing in `initramfs.c`.
+- Compile path without `-g` option.
+- Refine parsing in device tree.
+- Remove logger in `mem_allocator` so we can replace `task_pool` in `exception_c.c` with it.

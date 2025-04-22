@@ -1,12 +1,14 @@
 ENTRY(_kernel8)
 
+KERNEL_START = 0x80000; /* 256kB */
 STACK_SIZE = 0x40000; /* 256kB */
 HEAP_SIZE = 0x40000; /* 256kB */
 
 SECTIONS
 {
     /*raspi load image to 0x80000 */
-    . = 0x80000;
+    . = KERNEL_START;
+    _kernel_start = .;
     .text.boot : {KEEP(*(.text.boot))}
     .text : {*(.text)}
 

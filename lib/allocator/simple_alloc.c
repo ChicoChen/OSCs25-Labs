@@ -26,5 +26,5 @@ int memalloc(void *args){
 
     send_string("next alloc will happend at: ");
     send_line(itoa((unsigned int)memory_ptr, string, HEX));
-
+    return 0;
 }

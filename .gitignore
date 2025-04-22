@@ -1,4 +1,4 @@
 build/
-.vscode/*
-rootfs/*
+.vscode/
 scripts/debug.lldb.sh
+*.cpio

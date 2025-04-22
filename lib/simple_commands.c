@@ -1,4 +1,5 @@
 #include "simple_commands.h"
+#include "memory_region.h"
 #include "mini_uart.h"
 #include "utils.h"
 #include "str_utils.h"
@@ -9,20 +10,45 @@
 #include "devicetree/dtb.h"
 #include "timer/timer.h"
 
-extern void *_dtb_addr;
+#include "allocator/page_allocator.h"
+#include "allocator/dynamic_allocator.h"
+
+int cmd_help(void* args);
+int hello_world(void* args);
+int reset(void *arg);
+
+int dts_wrapper(void *arg);
+int tick_wrapper(void *arg);
+int delayed_printline(void *arg);
+
+int demo_page_alloc(void *arg);
+int demo_page_free(void *arg);
+int demo_dyna_alloc(void *arg);
+int demo_dyna_free(void *arg);
+int seq_alloc_free(void *arg);
 
 Command commands[] = {
-    {"help", cmd_help, "show the help menu"},
-    {"hello", hello_world, "print \"Hello world!\""},
-    {"mailbox", mailbox_entry, "show mailbox information"},
-    {"ls", list_ramfile, "list files in ramdisk"},
-    {"cat", view_ramfile, "show file content"},
-    {"memalloc", memalloc, "allocate memory for a string."},
-    {"dts", dts_wrapper, "show dts content."},
-    {"exec", exec_usr_prog, "execute user program in initramfs (target currently fixed)"},
-    {"tick", tick_wrapper, "switch on and off timer tick"},
-    {"setTimeout", delayed_printline, "echo inputline after assigned seconds"},
-    {"reboot", reset, "reboot the device"},
+    {"help", cmd_help,          "show the help menu"},
+    {"hello", hello_world,      "print \"Hello world!\""},
+    {"mailbox", mailbox_entry,  "show mailbox information"},
+
+    {"ls", list_ramfile,        "list files in ramdisk"},
+    {"cat", view_ramfile,       "show file content"},
+    {"exec", exec_usr_prog,     "execute user program in initramfs (target currently fixed)"},
+    {"dts", dts_wrapper,        "show dts content."},
+    
+    {"tick", tick_wrapper,      "switch on and off timer tick"},
+    {"setTimeout", delayed_printline, 
+                                "echo inputline after assigned seconds"},
+        
+    {"memalloc", memalloc,      "allocate memory for a string."},
+    {"palloc", demo_page_alloc, "demoing page_alloc())"},
+    {"pfree", demo_page_free,   "demoing page_free()"},
+    {"kalloc", demo_dyna_alloc, "demoing kmalloc()"},
+    {"kfree", demo_dyna_free,   "demoing kfree()"},
+    {"memdemo", seq_alloc_free, "mem demo case"},
+
+    {"reboot", reset,           "reboot the device"},
     {0, 0, 0} //terminator
 };
 
@@ -42,8 +68,17 @@ int hello_world(void *arg){
     return 0;
 }
 
+int reset(void *arg) {        
+    // int tick = *(int *)arg;
+    send_line("rebooting...");
+    int tick = 10;
+    addr_set(PM_RSTC, PM_PASSWORD | 0x20);
+    addr_set(PM_WDOG, PM_PASSWORD | tick);
+    return 0;
+};
+
 int dts_wrapper(void *arg){
-    return dtb_parser(find_initramfs, (addr_t)_dtb_addr);
+    return dtb_parser(print_dts, (addr_t)_dtb_addr);
 }
 
 int tick_wrapper(void *arg){
@@ -63,10 +98,50 @@ int delayed_printline(void *arg){
     return add_event(offset, send_void_line, message);
 }
 
-int reset(void *arg) {        
-    // int tick = *(int *)arg;
-    send_line("rebooting...");
-    int tick = 10;
-    addr_set(PM_RSTC, PM_PASSWORD | 0x20);
-    addr_set(PM_WDOG, PM_PASSWORD | tick);
+int demo_page_alloc(void *arg){
+    char *num_page = *((char **)arg);
+    size_t allocate_size = (size_t)atoui(num_page, DEC) * PAGE_SIZE;
+    void *addr = page_alloc(allocate_size);
+    send_string("get address ");
+    char temp[16];
+    send_line(itoa((unsigned int)addr, temp, HEX));
+    return 0;
+}
+
+int demo_page_free(void *arg){
+    char *page_idx = *((char **)arg);
+    size_t target_idx = (size_t)atoui(page_idx, HEX);
+    page_free((void *)(target_idx * PAGE_SIZE));
+    return 0;
+}
+
+int demo_dyna_alloc(void *arg){
+    char *queried_size = *((char **)arg);
+    size_t query = (size_t)atoui(queried_size, DEC);
+    void *addr = kmalloc(query);
+    send_string("\nget address ");
+    char temp[16];
+    send_line(itoa((unsigned int)addr, temp, HEX));
+    return 0;
+}
+
+int demo_dyna_free(void *arg){
+    char *target_address = *((char **)arg);
+    void *query = (void *)atoui(target_address, HEX);
+    kfree(query);
+    return 0;
+}
+
+int seq_alloc_free(void *arg){
+    void **addrs;
+    addrs = page_alloc(256 * 8);
+    for(size_t i = 1; i < 256; i++){
+        addrs[i] = page_alloc(i * PAGE_SIZE);
+    }
+
+    for(size_t i = 1; i < 256; i++){
+        page_free(addrs[i]);
+    }
+
+    return 0;
 }

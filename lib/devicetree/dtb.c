@@ -1,8 +1,22 @@
 #include "devicetree/dtb.h"
+#include "memory_region.h"
 #include "mini_uart.h"
 #include "str_utils.h"
 #include "utils.h"
-#include "file_sys/initramfs.h"
+
+size_t dtb_size = 0;
+
+void init_dtb(){
+    if(!_dtb_addr) return;
+    char temp[16];
+    dtb_size = ((fdt_header *)_dtb_addr)->totalsize;
+    dtb_size = to_le_u32(dtb_size);
+
+    send_string("dtb addr: ");
+    send_line(itoa((uint32_t)_dtb_addr, temp, HEX));
+    send_string("dtb size: ");
+    send_line(itoa((uint32_t)dtb_size, temp, HEX));
+}
 
 int dtb_parser(callback_func func, addr_t dtb_addr){
     if(dtb_addr < 10) {
@@ -48,23 +62,13 @@ int dtb_parser(callback_func func, addr_t dtb_addr){
     return 0;
 }
 
-void find_initramfs(unsigned int type, char *name, void *data, size_t len){
-    if(type == FDT_PROP && strcmp("linux,initrd-start", name)){
-        unsigned int cpio_addr = to_le_u32(*(unsigned int*)data);
-        send_string("initramfs address found: ");
-        char addr[11];
-        send_line(itoa(cpio_addr, addr, HEX));
-        set_initramfs_addr(cpio_addr);
-    }
-}
-
 void print_dts(unsigned int type, char *name, void *data, size_t len){
     char buffer[32];
     switch(type){
     case FDT_BEGIN_NODE:
         make_str(buffer, ' ' , depth * 2);
-        send_string(buffer);
-        send_string(name);
+        _send_string_(buffer, sync_send_data);
+        _send_string_(name, sync_send_data);
         send_line(":{");
         depth++;
         break;
@@ -72,18 +76,18 @@ void print_dts(unsigned int type, char *name, void *data, size_t len){
     case FDT_END_NODE:
         depth--;
         make_str(buffer, ' ', depth * 2);
-        send_string(buffer);
-        send_line("}");
+        _send_string_(buffer, sync_send_data);
+        _send_line_("}", sync_send_data);
         break;
     case FDT_PROP:
-        send_string(buffer);
-        send_string(name);
+        _send_string_(buffer, sync_send_data);
+        _send_string_(name, sync_send_data);
         if(len == 0) break;
-        send_string(": ");
+        _send_string_(": ", sync_send_data);
         for(int i = 0; i < len; i++){
             async_send_data(((char *)data)[i]);
         }
-        send_line("");
+        _send_line_("", sync_send_data);
         break;
     }
 }

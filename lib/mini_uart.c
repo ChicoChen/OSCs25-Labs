@@ -1,6 +1,17 @@
 #include "mini_uart.h"
 #include "utils.h"
 
+#define ASYNC_BUFFER_SIZE 2048u
+
+typedef struct{
+    byte buffer[ASYNC_BUFFER_SIZE];
+    size_t head;
+    size_t len;
+}AsyncBuf;
+
+AsyncBuf async_recv;
+AsyncBuf async_tran;
+
 void enable_aux_interrupt() { *ENABLE_IRQs1 = (1u << 29); }
 void disable_aux_interrupt() { *DISABLE_IRQs1 = (1u << 29); }
 
