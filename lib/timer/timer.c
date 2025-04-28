@@ -1,7 +1,7 @@
 #include "timer/timer.h"
+#include "allocator/dynamic_allocator.h"
 #include "mini_uart.h"
 #include "str_utils.h"
-#include "allocator/simple_alloc.h"
 
 static EventQueue events;
 static void get_timer(uint64_t *count, uint64_t *freq);
@@ -28,8 +28,11 @@ void timer_interrupt_handler(){
     TimerEvent* iter = events.head;
     while(iter){
         if(iter->target_clock > current_count) break;
+
+        TimerEvent *current = iter;
         iter->callback_func(iter->args);
         iter = iter->next;
+        kfree((void *)current);
     }
 
     events.head = iter;
@@ -40,7 +43,6 @@ void timer_interrupt_handler(){
 }
 
 int add_event(uint64_t offset, void (*callback_func)(void* arg), void *args){
-    // _send_line_("call add_event", sync_send_data);
     if(!events.initialized){
         _send_line_("[timer not init!]", sync_send_data);
         return 1;
@@ -50,15 +52,15 @@ int add_event(uint64_t offset, void (*callback_func)(void* arg), void *args){
     uint64_t current_clock, freq;
     get_timer(&current_clock, &freq);
     
-    TimerEvent *new_event = (TimerEvent *)simple_alloc(TIMEREVENT_BYTESIZE);
+    TimerEvent *new_event = (TimerEvent *)kmalloc(TIMEREVENT_BYTESIZE);
     if(!new_event) return 1;
     
     new_event->callback_func = callback_func;
     new_event->args = args;
     new_event->target_clock = current_clock + offset * freq;
     
-    enable_core_timer(false);
     //critical section
+    enable_core_timer(false);
     TimerEvent *iter = events.head;
     TimerEvent* prev = NULL;
     while(iter != NULL){
