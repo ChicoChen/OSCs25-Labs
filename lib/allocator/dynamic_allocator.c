@@ -3,6 +3,7 @@
 #include "template/list.h"
 #include "mini_uart.h"
 #include "str_utils.h"
+#include "utils.h"
 
 #define ALIGN(target, alignment) ((target + alignment - 1) & ~(alignment - 1))
 

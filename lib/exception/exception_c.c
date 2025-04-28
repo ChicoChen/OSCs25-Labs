@@ -1,8 +1,9 @@
 #include "exception/exception.h"
 #include "timer/timer.h"
+#include "template/list.h"
 #include "mini_uart.h"
 #include "str_utils.h"
-#include "template/list.h"
+#include "utils.h"
 
 static void enableDAIF() { asm volatile("msr DAIFClr, 0xf" :::); }
 static void disableDAIF() { asm volatile("msr DAIFSet, 0xf" :::); }

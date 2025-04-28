@@ -3,6 +3,9 @@
 
 #include "basic_type.h"
 
+#define GET_OFFSET(type, member) ((uint64_t) &((type *)0)->member)
+#define GET_CONTAINER(ptr, type, member) ((type *)((addr_t)ptr - GET_OFFSET(type, member)))
+
 #define COND_SWAP(flag, type, var1, var2)   \
     do{                                     \
         if (flag) {                         \
