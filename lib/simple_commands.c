@@ -84,8 +84,8 @@ int dts_wrapper(void *arg){
 int tick_wrapper(void *arg){
     char *flag = *(char **)arg;
     bool enable = BOOL(atoi(flag, DEC));
-    if(enable) add_event(2, tick_callback, 0);
-    else timer_clear_event(tick_callback);
+    if(enable) add_timer_event(2, tick_callback, 0);
+    else clear_timer_event(tick_callback);
     return 1;
 }
 
@@ -95,7 +95,7 @@ int delayed_printline(void *arg){
     void *message = simple_alloc(message_len); //! deallocator
     memcpy(message, arguments[0], message_len);
     uint64_t offset = atoi(arguments[1], DEC);
-    return add_event(offset, send_void_line, message);
+    return add_timer_event(offset, send_void_line, message);
 }
 
 int demo_page_alloc(void *arg){

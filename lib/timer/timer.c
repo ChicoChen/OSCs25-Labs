@@ -4,9 +4,12 @@
 #include "str_utils.h"
 
 static EventQueue events;
-static void get_timer(uint64_t *count, uint64_t *freq);
+// ----- forward decls ------
+
+void print_tick_message();
 static void set_timeout(uint64_t target_cval);
 
+// ----- public interfaces ------
 
 void enable_core_timer(bool enable){
     asm volatile("msr cntp_ctl_el0, %[flag]"::[flag]"r"(enable):);
@@ -42,13 +45,12 @@ void timer_interrupt_handler(){
     }
 }
 
-int add_event(uint64_t offset, void (*callback_func)(void* arg), void *args){
+int add_timer_event(uint64_t offset, void (*callback_func)(void* arg), void *args){
     if(!events.initialized){
         _send_line_("[timer not init!]", sync_send_data);
         return 1;
     }
     
-    //! TODO: currently no deallocator
     uint64_t current_clock, freq;
     get_timer(&current_clock, &freq);
     
@@ -79,7 +81,7 @@ int add_event(uint64_t offset, void (*callback_func)(void* arg), void *args){
     return 0;
 }
 
-void timer_clear_event(void (*callback_func)(void* arg)){
+void clear_timer_event(void (*callback_func)(void* arg)){
     enable_core_timer(false);
     while(events.head){
         if(events.head->callback_func == tick_callback) events.head = events.head -> next;
@@ -97,8 +99,24 @@ void timer_clear_event(void (*callback_func)(void* arg)){
 
 void tick_callback(void* args){
     print_tick_message();
-    add_event(2, tick_callback, args);
+    add_timer_event(2, tick_callback, args);
     return;
+}
+
+static void get_timer(uint64_t *count, uint64_t *freq){
+    asm volatile(
+        "mrs %[count], cntpct_el0\n"
+        "mrs %[freq], cntfrq_el0\n"
+        : [count]"=r"(*count), [freq]"=r"(*freq)::);
+}
+
+// ----- local functions ------
+
+static void set_timeout(uint64_t target_cval){
+    uint64_t current, freq;
+    get_timer(&current, &freq);
+    if(current + TIMER_INTERRUPT_MIN_INTERVAL >= target_cval) target_cval = current + TIMER_INTERRUPT_MIN_INTERVAL;
+    asm volatile("msr cntp_cval_el0, %[clock]":: [clock]"r"(target_cval):);
 }
 
 void print_tick_message(){
@@ -112,16 +130,3 @@ void print_tick_message(){
     _send_line_("]", sync_send_data);
 }
 
-static void get_timer(uint64_t *count, uint64_t *freq){
-    asm volatile(
-        "mrs %[count], cntpct_el0\n"
-        "mrs %[freq], cntfrq_el0\n"
-        : [count]"=r"(*count), [freq]"=r"(*freq)::);
-}
-
-static void set_timeout(uint64_t target_cval){
-    uint64_t current, freq;
-    get_timer(&current, &freq);
-    if(current + TIMER_INTERRUPT_MIN_INTERVAL >= target_cval) target_cval = current + TIMER_INTERRUPT_MIN_INTERVAL;
-    asm volatile("msr cntp_cval_el0, %[clock]":: [clock]"r"(target_cval):);
-}
