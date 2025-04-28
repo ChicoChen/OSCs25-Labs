@@ -7,8 +7,8 @@
 #define PAGE_SIZE 0x1000 // 4kB
 #define TOTAL_PAGE (MEM_SIZE / PAGE_SIZE)
 
-#define PAGE_ALLOC_LOGGER
-#define PAGE_RESERVE_LOGGER
+// #define PAGE_ALLOC_LOGGER
+// #define PAGE_RESERVE_LOGGER
 
 int init_page_array(void *start_addr);
 void memory_reserve(void *start, size_t size);

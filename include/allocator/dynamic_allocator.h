@@ -3,7 +3,7 @@
 
 #include "basic_type.h"
 
-#define DYNAMIC_ALLOC_LOGGER
+// #define DYNAMIC_ALLOC_LOGGER
 
 void init_memory_pool();
 
