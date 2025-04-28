@@ -7,4 +7,4 @@ With priority:
 - Initramfs parsing in `initramfs.c`.
 - Compile path without `-g` option.
 - Refine parsing in device tree.
-- Remove logger in `mem_allocator` so we can replace `task_pool` in `exception_c.c` with it.
+- `kmalloc()` interfact that use page allocation for big object, use dynamic allocation for small object.
