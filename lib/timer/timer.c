@@ -33,7 +33,8 @@ void timer_interrupt_handler(){
         if(iter->target_clock > current_count) break;
 
         TimerEvent *current = iter;
-        iter->callback_func(iter->args);
+        iter->callback_func(iter->args); // !scheduler() wont return from here upon switch
+        // TODO: fix implementation here any timer interrupt will trigger un-return context switch
         iter = iter->next;
         kfree((void *)current);
     }
@@ -103,7 +104,7 @@ void tick_callback(void* args){
     return;
 }
 
-static void get_timer(uint64_t *count, uint64_t *freq){
+void get_timer(uint64_t *count, uint64_t *freq){
     asm volatile(
         "mrs %[count], cntpct_el0\n"
         "mrs %[freq], cntfrq_el0\n"

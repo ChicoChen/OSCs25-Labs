@@ -13,6 +13,8 @@
 #include "allocator/page_allocator.h"
 #include "allocator/dynamic_allocator.h"
 
+#include "thread/thread.h"
+
 int cmd_help(void* args);
 int hello_world(void* args);
 int reset(void *arg);
@@ -26,6 +28,9 @@ int demo_page_free(void *arg);
 int demo_dyna_alloc(void *arg);
 int demo_dyna_free(void *arg);
 int seq_alloc_free(void *arg);
+
+void fork_dummy();
+int kernel_demo(void *arg);
 
 Command commands[] = {
     {"help", cmd_help,          "show the help menu"},
@@ -46,8 +51,10 @@ Command commands[] = {
     {"pfree", demo_page_free,   "demoing page_free()"},
     {"kalloc", demo_dyna_alloc, "demoing kmalloc()"},
     {"kfree", demo_dyna_free,   "demoing kfree()"},
-    {"memdemo", seq_alloc_free, "mem demo case"},
-
+    {"memdemo", seq_alloc_free, "demo memory allocation"},
+    
+    {"forkdemo", kernel_demo, "mem thread forking"},
+ 
     {"reboot", reset,           "reboot the device"},
     {0, 0, 0} //terminator
 };
@@ -144,4 +151,24 @@ int seq_alloc_free(void *arg){
     }
 
     return 0;
+}
+
+void fork_dummy(){
+    char buffer[16];
+    for(int i = 0; i < 10; ++i) {
+        send_string("Thread id: ");
+        send_string(itoa(get_current_id(), buffer, HEX));
+        send_string(" ");
+        send_line(itoa(i, buffer, HEX));
+        delay(1000000);
+        schedule();
+    }
+    NULL;
+}
+
+int kernel_demo(void *args) {
+    for(int i = 0; i < 4; ++i) {
+        make_thread(fork_dummy);
+    }
+    idle();
 }
