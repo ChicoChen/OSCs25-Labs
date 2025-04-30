@@ -7,6 +7,9 @@
 #include "basic_type.h"
 #include "utils.h"
 
+#include "mini_uart.h"
+#include "str_utils.h"
+
 #define STATE_FP 10
 #define STATE_LR 11
 #define STATE_SP 12
@@ -32,6 +35,7 @@ static Queue wait_queue;
 static Queue dead_queue;
 
 static Thread *idle_thread = NULL;
+static Thread *systemd = NULL;
 
 static uint32_t total_thread = 0;
 static uint64_t switch_interval = ~0;
@@ -60,9 +64,12 @@ void init_thread_sys(){
     get_timer(&count, &freq);
     switch_interval = freq >> 5;
 
-    //todo: make idle thread and assign id 0
     idle_thread = (Thread *)kmalloc(THREAD_SIZE);
     thread_init(idle_thread, idle);
+    
+    systemd = (Thread *)kmalloc(THREAD_SIZE);
+    thread_init(systemd, NULL);
+    asm volatile("msr tpidr_el1, %[init_thread]" : :[init_thread]"r"(systemd) :);
 }
 
 void make_thread(Task assigned_func){
@@ -77,10 +84,9 @@ void make_thread(Task assigned_func){
 void schedule(){
     // get current thread and next thread
     Thread *preemptee = get_curr_thread();
-    if(preemptee && preemptee != idle_thread && thread_alive(preemptee)){
+    if(preemptee->id > 1 && thread_alive(preemptee)){
         queue_push(&run_queue, &preemptee->node);
-    }
-       
+    }   
     
     ListNode* head = queue_pop(&run_queue);
     Thread *preemptor = (!head)? idle_thread: GET_CONTAINER(head, Thread, node);
@@ -88,11 +94,7 @@ void schedule(){
     
     // save current state and context switch
     // get preempt during this call, will resume from here
-    if(!preemptee){
-        uint64_t dummy[14];
-        switch_to(dummy, preemptor->thread_state);
-    }
-    else switch_to(preemptee->thread_state, preemptor->thread_state);
+    switch_to(preemptee->thread_state, preemptor->thread_state);
 }
 
 uint32_t get_current_id(){
@@ -131,7 +133,7 @@ void thread_init(Thread *target_thrad, Task assigned){
 
 Thread *get_curr_thread(){
     uint64_t *curr_state = get_curr_thread_state();
-    return (!curr_state)? NULL: GET_CONTAINER(curr_state, Thread, thread_state);
+    return GET_CONTAINER(curr_state, Thread, thread_state);
 }
 
 bool thread_alive(Thread* thread){
@@ -163,6 +165,9 @@ void kill_zombies(){
         ListNode *head = queue_pop(&dead_queue);
         Thread *dead_thread = GET_CONTAINER(head, Thread, node);
         dead_thread->thread_state[STATE_SP] &= ~(THREAD_STACK_SIZE - 1);
+        char temp[20];
+        send_string("[logger][Scheduler] kill pid ");
+        send_line(itoa(dead_thread->id, temp, HEX));
         page_free((void *)(dead_thread->thread_state[STATE_SP]));
         kfree((void *)dead_thread);
     }

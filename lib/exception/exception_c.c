@@ -33,9 +33,9 @@ typedef struct ExceptQueue{
 }ExceptQueue;
 
 // ----- local obj pools-----
-#define TASK_POOL_LEN 1024
+#define TASK_POOL_LEN 512
 static ExceptTask task_pool[TASK_POOL_LEN];
-static ExceptTask *task_free_list;
+static ExceptTask *task_free_list = NULL;
 #define QUEUE_POOL_LEN 16
 static ExceptQueue queue_pool[QUEUE_POOL_LEN];
 static ExceptQueue *queue_free_list;
@@ -89,6 +89,7 @@ void curr_irq_handler(){
     uint32_t source = *CORE0_INTERRUPT_SOURCE;
     ExceptTask* new_task = query_task();
     if(!new_task) {
+        
         _send_line_("[ERROR][except handler]: can't find avail ExceptTask", sync_send_data);
         return;
     }
