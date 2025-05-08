@@ -95,7 +95,7 @@ void init_page_header(PageHeader *header, size_t obj_size){
     header->capacity = (PAGE_SIZE - ALIGN(PAGE_HEADER_SIZE, OBJ_ALIGN)) / obj_size;
     header->avail = header->capacity;
     
-    list_init(&header->node);
+    node_init(&header->node);
     for(size_t i = 0; i < BITMAP_LENGTH / 64; i++){
         header->bitmap[i] = 0;
     }
@@ -106,7 +106,7 @@ void clear_page_header(PageHeader *header){
     header->capacity = 0;
     header->avail = 0;
     
-    list_init(&header->node);
+    node_init(&header->node);
     for(size_t i = 0; i < BITMAP_LENGTH / 64; i++){
         header->bitmap[i] = 0;
     }

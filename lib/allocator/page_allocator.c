@@ -119,6 +119,7 @@ void memory_reserve(void *start, size_t size){
 }
 
 void *page_alloc(size_t size){
+    // TODO: guard page for memory protection? MMU?
     if(!size) return NULL;
 
     PageBlock *target = NULL;
@@ -249,7 +250,7 @@ bool is_allocated(void *addr){
 void init_block(PageBlock *block, PageStatus status, size_t idx){
     block->status = status;
     block->idx = idx;
-    list_init(&block->node);
+    node_init(&block->node);
     free_list_insert(block, status);
 }
 

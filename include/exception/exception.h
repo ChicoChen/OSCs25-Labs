@@ -9,7 +9,7 @@
 extern void* _exception_vector_table;
 
 void init_exception();
-void _el1_to_el0(addr_t return_addr, addr_t user_stack);
+void _el1_to_el0(void *return_addr, void *user_stack);
 
 void _default_handler();
 void curr_irq_handler();

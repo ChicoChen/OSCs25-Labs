@@ -34,11 +34,10 @@ void timer_interrupt_handler(){
 
         TimerEvent *current = iter;
         iter->callback_func(iter->args); // !scheduler() wont return from here upon switch
-        // TODO: fix implementation here any timer interrupt will trigger un-return context switch
+        // TODO: fix implementation here, or any timer interrupt after context-switch, will trigger callback
         iter = iter->next;
         kfree((void *)current);
     }
-
     events.head = iter;
     if(iter) {
         set_timeout(iter->target_clock);
@@ -46,7 +45,7 @@ void timer_interrupt_handler(){
     }
 }
 
-int add_timer_event(uint64_t offset, void (*callback_func)(void* arg), void *args){
+int add_timer_event(uint64_t offset, void (*callback_func)(void *arg), void *args){
     if(!events.initialized){
         _send_line_("[timer not init!]", sync_send_data);
         return 1;
@@ -65,7 +64,7 @@ int add_timer_event(uint64_t offset, void (*callback_func)(void* arg), void *arg
     //critical section
     enable_core_timer(false);
     TimerEvent *iter = events.head;
-    TimerEvent* prev = NULL;
+    TimerEvent *prev = NULL;
     while(iter != NULL){
         if(iter->target_clock > new_event->target_clock) break;
         prev = iter;
@@ -82,7 +81,7 @@ int add_timer_event(uint64_t offset, void (*callback_func)(void* arg), void *arg
     return 0;
 }
 
-void clear_timer_event(void (*callback_func)(void* arg)){
+void clear_timer_event(void (*callback_func)(void *arg)){
     enable_core_timer(false);
     while(events.head){
         if(events.head->callback_func == tick_callback) events.head = events.head -> next;
@@ -98,7 +97,7 @@ void clear_timer_event(void (*callback_func)(void* arg)){
     enable_core_timer(true);
 }
 
-void tick_callback(void* args){
+void tick_callback(void *args){
     print_tick_message();
     add_timer_event(2, tick_callback, args);
     return;
@@ -108,7 +107,8 @@ void get_timer(uint64_t *count, uint64_t *freq){
     asm volatile(
         "mrs %[count], cntpct_el0\n"
         "mrs %[freq], cntfrq_el0\n"
-        : [count]"=r"(*count), [freq]"=r"(*freq)::);
+        : [count]"=r"(*count), [freq]"=r"(*freq)::
+    );
 }
 
 // ----- local functions ------

@@ -1,7 +1,7 @@
 #include "template/list.h"
 #include "basic_type.h"
 
-void list_init(ListNode *node){
+void node_init(ListNode *node){
     node->next = NULL;
     node->prev = NULL;
 }
@@ -19,6 +19,6 @@ ListNode *list_remove(ListNode* target){
     if(target->prev) target->prev->next = target->next;
     if(target->next) target->next->prev = target->prev;
     ListNode* temp = target->next;
-    list_init(target);
+    node_init(target);
     return temp;
 }

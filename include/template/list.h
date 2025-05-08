@@ -7,7 +7,7 @@ typedef struct ListNode{
     struct ListNode *next;
 } ListNode;
 
-void list_init(ListNode *node);
+void node_init(ListNode *node);
 void list_add(ListNode* new, ListNode* prev, ListNode* next);
 ListNode *list_remove(ListNode* target);
 

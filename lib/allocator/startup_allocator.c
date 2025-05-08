@@ -11,7 +11,6 @@ void init_mem(){
     memory_reserve((void *)SPIN_TABLE_START, SPIN_TABLE_SIZE);
     memory_reserve((void *)PAGE_ARRAY_START, PAGE_ARRAY_SIZE);
     memory_reserve(&_kernel_start, KERNEL_END - KERNEL_START);
-    memory_reserve((void *)USER_PROG_START, USER_STACK_TOP - USER_PROG_START);
     memory_reserve(_dtb_addr, dtb_size);
     memory_reserve(initramfs_addr, initramfs_size);
 }

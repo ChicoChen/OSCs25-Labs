@@ -30,10 +30,8 @@ void init_syscalls(){
 }
 
 void invoke_syscall(uint64_t *stack_frame){
-    ENABLE_DAIF;
     uint64_t syscall = stack_frame[SYSCALL_IDX];
     handlers[syscall](stack_frame);
-    DISABLE_DAIF;
 }
 
 // ----- local functions -----
@@ -54,15 +52,19 @@ void getpid(uint64_t *stack_frame){
 }
 
 void uart_read(uint64_t *stack_frame){
+    ENABLE_DAIF;
     char *buf = (char *)stack_frame[0];
     size_t size = (size_t) stack_frame[1];
     SYS_RETURN(read_to_buf(buf, size));
+    DISABLE_DAIF;
 }
 
 void uart_write(uint64_t *stack_frame){
+    ENABLE_DAIF;
     char *buf = (char *)stack_frame[0];
     size_t size = (size_t) stack_frame[1];
     SYS_RETURN(send_from_buf(buf, size));
+    DISABLE_DAIF;
 }
 
 void exec(uint64_t *stack_frame){

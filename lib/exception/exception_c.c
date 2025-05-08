@@ -196,14 +196,14 @@ static void exec_queue(ExceptQueue *queue){
 static void init_except_task(ExceptTask *task){
     task->handler = NULL;
     task->next = NULL;
-    list_init(&task->node);
+    node_init(&task->node);
     task->priority = DEFAULT;
 }
 
 static void init_except_queue(ExceptQueue *que){
     que->head = NULL;
     que->preemptor = NULL;
-    list_init(&que->node);
+    node_init(&que->node);
 }
 
 static ExceptTask *query_task(){
