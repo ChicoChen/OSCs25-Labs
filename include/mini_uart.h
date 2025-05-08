@@ -35,6 +35,7 @@ char sync_read_data();
 char async_read_data();
 
 int echo_read_line(char *inputline);
+size_t read_to_buf(char *buffer, size_t size);
 
 // ----- write -----
 void sync_send_data(char c);
@@ -44,6 +45,7 @@ void send_string(char *str); //default async
 void _send_string_(char *str, void (*send_func)(char));
 
 void send_line(char *line);
+size_t send_from_buf(char *buffer, size_t size);
 void send_void_line(void *vstr);
 void _send_line_(char *line, void (*send_func)(char));
 

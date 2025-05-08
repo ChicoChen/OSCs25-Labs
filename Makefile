@@ -7,14 +7,14 @@ ROOTFS = rootfs/
 # ---------- Program Name ----------
 LOADER = loader
 KERNEL = kernel8
-INITRAMFS = initramfs.cpio
+INITRAMFS = m_initramfs.cpio
 EXCEPTION = exception
 # ---------- Compile flag ----------
 NO_WARN = -Wno-incompatible-library-redeclaration -Wno-asm-operand-widths -Wno-pointer-to-int-cast -Wno-int-to-void-pointer-cast -Wno-c23-extensions
 COMPILE_FLAG = -nostdlib -ffreestanding -g $(NO_WARN)
 LLDB_FLAG = -s -S
 MINI_UART_FLAG = -serial null -serial stdio
-INITRAMFS_FLAG = -initrd $(INITRAMFS)
+INITRAMFS_FLAG = -initrd initramfs.cpio
 DTB_FLAG = -dtb bcm2710-rpi-3-b-plus.dtb
 
 # ---------- Dependencies ----------

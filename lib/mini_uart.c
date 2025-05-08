@@ -93,6 +93,15 @@ int echo_read_line(char *inputline){
     return writehead;
 }
 
+size_t read_to_buf(char *buffer, size_t size){
+    size_t total_read = 0;
+    while(total_read < size){
+        buffer[total_read++] = async_read_data();
+        if(async_recv.len == 0) break;
+    }
+    return total_read;
+}
+
 void sync_send_data(char c){
     int transmit_ready = 0;
     while(!transmit_ready){
@@ -126,6 +135,16 @@ void _send_string_(char *str, void (*send_func)(char)){
 void send_line(char *line){
     _send_line_(line, async_send_data);
 }
+
+size_t send_from_buf(char *buffer, size_t size){
+    size_t total_send = 0;
+    while(total_send < size){
+        async_send_data(buffer[total_send++]);
+        if(async_tran.len == ASYNC_BUFFER_SIZE) break;
+    }
+    return total_send;
+}
+
 
 void send_void_line(void *vstr){
     char *line = (char *)vstr;

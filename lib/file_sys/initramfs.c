@@ -127,11 +127,15 @@ addr_t find_address(char *filename, unsigned int *filesize_ptr){
     return (addr_t)mem;
 }
 
-int exec_usr_prog(void* args){
-    char *prog_name = "sys_call.img";
+int exec_user_prog(char *prog_name, char **args){
+    //TODO: how to run with arguments?
+    if(!prog_name) prog_name = "sys_call.img";
     size_t filesize = 0;
     addr_t source = find_address(prog_name, &filesize);
-    if(!source) return 1;
+    if(!source) {
+        send_line("[ERROR][filesys]: can't find target program!");
+        return 1;
+    }
     
     addr_t dest = USER_PROG_START;
     for(size_t size = 0; size < filesize; size += 4){ //file content is padded to 4 bytes

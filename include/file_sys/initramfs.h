@@ -33,7 +33,7 @@ int list_ramfile(void *args);
 int view_ramfile(void *args);
 
 addr_t find_address(char *filename, unsigned int *filesize_ptr);
-int exec_usr_prog(void* args);
+int exec_user_prog(char *name, char **argv);
 
 int check_magic(byte* magic);
 

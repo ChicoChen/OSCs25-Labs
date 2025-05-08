@@ -18,6 +18,7 @@
 int cmd_help(void* args);
 int hello_world(void* args);
 int reset(void *arg);
+int exec_wrapper(void *args);
 
 int dts_wrapper(void *arg);
 int tick_wrapper(void *arg);
@@ -39,7 +40,7 @@ Command commands[] = {
 
     {"ls", list_ramfile,        "list files in ramdisk"},
     {"cat", view_ramfile,       "show file content"},
-    {"exec", exec_usr_prog,     "execute user program in initramfs (target currently fixed)"},
+    {"exec", exec_wrapper,     "execute user program in initramfs"},
     {"dts", dts_wrapper,        "show dts content."},
     
     {"tick", tick_wrapper,      "switch on and off timer tick"},
@@ -53,7 +54,7 @@ Command commands[] = {
     {"kfree", demo_dyna_free,   "demoing kfree()"},
     {"memdemo", seq_alloc_free, "demo memory allocation"},
     
-    {"forkdemo", kernel_demo, "mem thread forking"},
+    {"threaddemo", kernel_demo, "thread create and scheduling testcase"},
  
     {"reboot", reset,           "reboot the device"},
     {0, 0, 0} //terminator
@@ -83,6 +84,13 @@ int reset(void *arg) {
     addr_set(PM_WDOG, PM_PASSWORD | tick);
     return 0;
 };
+
+int exec_wrapper(void *args){
+    char **arguments = (char **)args;
+    char *name = arguments[0];
+    char **argv = arguments + 1;
+    return exec_user_prog(name, argv);
+}
 
 int dts_wrapper(void *arg){
     return dtb_parser(print_dts, (addr_t)_dtb_addr);
@@ -171,4 +179,6 @@ int kernel_demo(void *args) {
         make_thread(fork_dummy);
     }
     idle();
+
+    return 0;
 }
