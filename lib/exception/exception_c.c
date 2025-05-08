@@ -1,4 +1,5 @@
 #include "exception/exception.h"
+#include "exception/syscall.h"
 #include "timer/timer.h"
 #include "template/list.h"
 #include "mini_uart.h"
@@ -40,8 +41,9 @@ static ExceptTask *task_free_list = NULL;
 static ExceptQueue queue_pool[QUEUE_POOL_LEN];
 static ExceptQueue *queue_free_list;
 
-// ----- Declare Local Functions -----
 static ExceptQueue* base_queue;
+
+// ----- Declare Local Functions -----
 static ExceptQueue *enqueue_task(ExceptTask *task);
 static void exec_queue(ExceptQueue *queue);
 
@@ -78,6 +80,8 @@ void init_exception(){
         list_add(&(queue_pool + i)->node, NULL, next_node);
         queue_free_list = queue_pool + i;
     }
+
+    init_syscalls();
 }
 
 /** 
@@ -89,7 +93,6 @@ void curr_irq_handler(){
     uint32_t source = *CORE0_INTERRUPT_SOURCE;
     ExceptTask* new_task = query_task();
     if(!new_task) {
-        
         _send_line_("[ERROR][except handler]: can't find avail ExceptTask", sync_send_data);
         return;
     }
@@ -114,6 +117,13 @@ void curr_irq_handler(){
     }
 }
 
+void lower_sync_handler(void *stack_frame){
+    uint64_t *register_state = (uint64_t *)stack_frame;
+    uint64_t EC = (register_state[ESR_IDX] >> 26) & (0b111111);
+    if(EC == SVC) invoke_syscall(register_state);
+    else print_el_message(register_state[SPSR_IDX], register_state[ELR_IDX], register_state[ESR_IDX]);
+}
+
 void print_el_message(uint32_t spsr_el1, uint64_t elr_el1, uint64_t esr_el1){
     char reg_content[20];
     _send_string_("spsr_el1: ", sync_send_data);
@@ -126,6 +136,8 @@ void print_el_message(uint32_t spsr_el1, uint64_t elr_el1, uint64_t esr_el1){
     _send_line_(itoa(esr_el1, reg_content, HEX), sync_send_data);
     return;
 }
+
+// ----- local functions -----
 
 /** 
  * enqueue handler's execution order according to its priority.

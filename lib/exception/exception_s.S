@@ -81,7 +81,7 @@ _exception_vector_table:
   b _default_handler
   .align 7
 
-  b _default_handler
+  b _lower_sync_entry
   .align 7
   b _default_handler
   .align 7
@@ -114,5 +114,13 @@ _curr_irq_entry:
   msr DAIFSet, 0xf
   save_all
   bl curr_irq_handler
+  load_all
+  eret
+
+_lower_sync_entry:
+  msr DAIFSet, 0xf
+  save_all
+  mov x0, sp
+  bl lower_sync_handler
   load_all
   eret
