@@ -11,26 +11,6 @@
 #include "mini_uart.h"
 #include "str_utils.h"
 
-#define STATE_FP 10
-#define STATE_LR 11
-#define STATE_USER_SP 12
-#define STATE_KERNEL_SP 13
-
-#define THREAD_STACK_SIZE USER_STACK_SIZE
-
-#define THREAD_STATE_SIZE (8 * 14)
-#define THREAD_STATE_OFFSET 16
-#define THREAD_SIZE (28 + THREAD_STATE_SIZE + LISTNODE_SIZE)
-typedef struct{
-    Task task;
-    uint32_t id;
-    uint32_t priority;
-    uint64_t thread_state[14]; // need 16-byte aligned
-    void *args;
-    bool alive;
-    ListNode node;
-}Thread;
-
 static Queue run_queue;
 static Queue wait_queue;
 static Queue dead_queue;
@@ -43,8 +23,7 @@ static uint64_t switch_interval = ~0;
 
 // ----- forward decls -----
 
-void thread_init(Thread *target_thread, Task assigned, void *args);
-Thread *get_curr_thread();
+void thread_init(Thread *target_thread, Task assigned, void *args, void *prog);
 void task_wrapper(void *, uint64_t *state);
 void launch_user_process(void *prog_entry);
 bool thread_alive(Thread* thread);
@@ -67,16 +46,16 @@ void init_thread_sys(){
     switch_interval = freq >> 5;
 
     idle_thread = (Thread *)kmalloc(THREAD_SIZE);
-    thread_init(idle_thread, idle, NULL);
+    thread_init(idle_thread, idle, NULL, NULL);
     
     systemd = (Thread *)kmalloc(THREAD_SIZE);
-    thread_init(systemd, NULL, NULL);
+    thread_init(systemd, NULL, NULL, NULL);
     asm volatile("msr tpidr_el1, %[init_thread]" : :[init_thread]"r"(systemd->thread_state) :);
 }
 
-void make_thread(Task assigned_func, void *args){
+void make_thread(Task assigned_func, void *args, void* prog){
     Thread *new_thread = (Thread *)kmalloc(THREAD_SIZE);
-    thread_init(new_thread, assigned_func, args);
+    thread_init(new_thread, assigned_func, args, prog);
     
     // insert into queue
     node_init(&new_thread->node);
@@ -88,7 +67,7 @@ void create_prog_thread(void *prog_entry){
     // 2. jump to el0, notice return address
     // 3. schedule to execute it 
     // 4. todo: leave memory reclaiming to idle
-    make_thread(launch_user_process, prog_entry);
+    make_thread(launch_user_process, NULL, prog_entry);
 }
 
 void schedule(){
@@ -107,17 +86,18 @@ void schedule(){
     switch_to(preemptee->thread_state, preemptor->thread_state);
 }
 
-uint32_t get_current_id(){
-    Thread *curr = get_curr_thread();
-    return (curr)? curr->id: 1;
+Thread *get_curr_thread(){
+    uint64_t *curr_state = get_curr_thread_state();
+    return GET_CONTAINER(curr_state, Thread, thread_state);
 }
 
 // ----- local functions -----
-void thread_init(Thread *target_thread, Task assigned, void *args){
+void thread_init(Thread *target_thread, Task assigned, void *args, void *prog){
     target_thread->id = total_thread++;
     target_thread->task = assigned;
     target_thread->priority = 0;
     target_thread->args = args;
+    target_thread->prog = prog;
     target_thread->alive = true;
 
     for(size_t i = 0; i < 14; i++){
@@ -137,10 +117,6 @@ void thread_init(Thread *target_thread, Task assigned, void *args){
     }
 }
 
-Thread *get_curr_thread(){
-    uint64_t *curr_state = get_curr_thread_state();
-    return GET_CONTAINER(curr_state, Thread, thread_state);
-}
 
 bool thread_alive(Thread* thread){
     return !(thread->alive);
@@ -152,9 +128,9 @@ void task_wrapper(void *old_state, uint64_t *new_state){
     exit(); //todo: replace with sys_call_exit()
 } 
 
-void launch_user_process(void *prog_entry){
-    uint64_t *curr_state = get_curr_thread_state(); 
-    _el1_to_el0(prog_entry, (void *)curr_state[STATE_USER_SP]);
+void launch_user_process(void *args){
+    Thread *curr = get_curr_thread();
+    _el1_to_el0(curr->prog, (void *)curr->thread_state[STATE_USER_SP]);
     // program itself is responsible for calling sys_exit()
 }
 
@@ -179,9 +155,12 @@ void kill_zombies(){
         Thread *dead_thread = GET_CONTAINER(head, Thread, node);
         dead_thread->thread_state[STATE_USER_SP] &= ~(USER_STACK_SIZE - 1);
         dead_thread->thread_state[STATE_KERNEL_SP] &= ~(KERNEL_STACK_SIZE - 1);
+        
         char temp[20];
         send_string("[logger][Scheduler] kill pid ");
         send_line(itoa(dead_thread->id, temp, HEX));
+
+        page_free((void *)(dead_thread->prog));
         page_free((void *)(dead_thread->thread_state[STATE_USER_SP]));
         page_free((void *)(dead_thread->thread_state[STATE_KERNEL_SP]));
         kfree((void *)dead_thread);
@@ -197,18 +176,18 @@ void __switch_thread(){
         "stp x23, x24, [x0, 16 * 2] \n"
         "stp x25, x26, [x0, 16 * 3] \n"
         "stp x27, x28, [x0, 16 * 4] \n"
-        "stp fp, lr, [x0, 16 * 5] \n" // <- points to next line after switch_to()
+        "stp fp, lr, [x0, 16 * 5]   \n" // <- points to next line after switch_to()
         "mrs x9, sp_el0 \n"
-        "mov x10, sp \n" // sp_el1
-        "stp x9, x10, [x0, 16 * 6] \n"
+        "mov x10, sp \n"                // sp_el1
+        "stp x9, x10, [x0, 16 * 6]  \n"
 
         "ldp x19, x20, [x1, 16 * 0] \n"
         "ldp x21, x22, [x1, 16 * 1] \n"
         "ldp x23, x24, [x1, 16 * 2] \n"
         "ldp x25, x26, [x1, 16 * 3] \n"
         "ldp x27, x28, [x1, 16 * 4] \n"
-        "ldp fp, lr, [x1, 16 * 5] \n"
-        "ldp x9, x10, [x1, 16 * 6] \n"
+        "ldp fp, lr, [x1, 16 * 5]   \n"
+        "ldp x9, x10, [x1, 16 * 6]  \n"
         "mov sp, x10 \n"
         "msr sp_el0, x9 \n"
         "msr tpidr_el1, x1 \n"

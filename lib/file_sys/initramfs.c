@@ -129,27 +129,36 @@ addr_t find_address(char *filename, unsigned int *filesize_ptr){
     return (addr_t)mem;
 }
 
-int exec_user_prog(char *prog_name, char **args){
-    //TODO: how to run with arguments?
+void *load_program(char *prog_name){
     if(!prog_name) prog_name = "sys_call.img";
     size_t filesize = 0;
     addr_t source = find_address(prog_name, &filesize);
     if(!source) {
         send_line("[ERROR][filesys]: can't find target program!");
-        return 1;
+        return NULL;
     }
     
     void *dest = page_alloc(filesize);
     if(!dest){
         send_line("[ERROR][filesys]: can't allocate space for program!");
-        return 1;
+        return NULL;
     }
-    
+
     char temp[32];
     send_string("[filesys]: loadling program of size ");
     send_line(itoa(filesize, temp, HEX));
     memcpy(dest, (void *)source, filesize);
-    
+    return dest;
+}
+
+/// @brief spawn a new thread to run specific program in EL0, used only by kernel's simple_shell
+/// @param name name of program.
+/// @param args needed arguments
+int run_prog(char *prog_name, char **args){
+    // TODO: how to run with arguments?
+    void *dest = load_program(prog_name);
+    if(!dest) return 1;
+
     create_prog_thread(dest);
     schedule();
     return 0;

@@ -1,7 +1,10 @@
 #include "exception/syscall.h"
+#include "exception/exception.h"
 #include "thread/thread.h"
+#include "allocator/page_allocator.h"
 #include "file_sys/initramfs.h"
 #include "mini_uart.h"
+#include "str_utils.h"
 
 #define NUM_SYSCALL 292
 
@@ -48,7 +51,7 @@ void register_syscall(size_t idx, SyscallHandler handler) {
 }
 
 void getpid(uint64_t *stack_frame){
-    SYS_RETURN(get_current_id());
+    SYS_RETURN(get_curr_thread()->id);
 }
 
 void uart_read(uint64_t *stack_frame){
@@ -67,8 +70,25 @@ void uart_write(uint64_t *stack_frame){
     DISABLE_DAIF;
 }
 
+/// @brief syscall to execute a program on current thread.
+/// @param name name of program.
+/// @param args needed arguments.
 void exec(uint64_t *stack_frame){
     char *name = (char *)stack_frame[0];
     char **argv = (char **)stack_frame[1];
-    exec_user_prog(name, argv);
+    
+    //clear old program section
+    Thread *curr_thread = get_curr_thread();
+    page_free(curr_thread->prog);
+
+    // allocate new stack and prog
+    void *new_dest = load_program(name);
+    stack_frame[ELR_IDX] = (uint64_t)new_dest;
+    asm volatile(
+        "msr sp_el0, %[user_sp]"
+        :
+        : [user_sp]"r"(curr_thread->thread_state[STATE_USER_SP])
+        :
+    );
+    return;
 }

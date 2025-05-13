@@ -30,9 +30,6 @@ int demo_dyna_alloc(void *arg);
 int demo_dyna_free(void *arg);
 int seq_alloc_free(void *arg);
 
-void fork_dummy(void *args);
-int kernel_demo(void *arg);
-
 Command commands[] = {
     {"help", cmd_help,          "show the help menu"},
     {"hello", hello_world,      "print \"Hello world!\""},
@@ -54,8 +51,6 @@ Command commands[] = {
     {"kfree", demo_dyna_free,   "demoing kfree()"},
     {"memdemo", seq_alloc_free, "demo memory allocation"},
     
-    {"threaddemo", kernel_demo, "thread create and scheduling testcase"},
- 
     {"reboot", reset,           "reboot the device"},
     {0, 0, 0} //terminator
 };
@@ -89,7 +84,7 @@ int exec_wrapper(void *args){
     char **arguments = (char **)args;
     char *name = arguments[0];
     char **argv = arguments + 1;
-    return exec_user_prog(name, argv);
+    return run_prog(name, argv);
 }
 
 int dts_wrapper(void *arg){
@@ -157,28 +152,6 @@ int seq_alloc_free(void *arg){
     for(size_t i = 1; i < 256; i++){
         page_free(addrs[i]);
     }
-
-    return 0;
-}
-
-void fork_dummy(void *args){
-    char buffer[16];
-    for(int i = 0; i < 10; ++i) {
-        send_string("Thread id: ");
-        send_string(itoa(get_current_id(), buffer, HEX));
-        send_string(" ");
-        send_line(itoa(i, buffer, HEX));
-        delay(1000000);
-        schedule();
-    }
-    NULL;
-}
-
-int kernel_demo(void *args) {
-    for(int i = 0; i < 4; ++i) {
-        make_thread(fork_dummy, NULL);
-    }
-    idle();
 
     return 0;
 }
