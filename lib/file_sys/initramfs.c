@@ -1,7 +1,6 @@
 #include "file_sys/initramfs.h"
 #include "devicetree/dtb.h"
 #include "exception/exception.h"
-#include "allocator/page_allocator.h"
 #include "thread/thread.h"
 #include "memory_region.h"
 #include "base_address.h"
@@ -129,7 +128,7 @@ addr_t find_address(char *filename, unsigned int *filesize_ptr){
     return (addr_t)mem;
 }
 
-void *load_program(char *prog_name){
+RCregion *load_program(char *prog_name){
     if(!prog_name) prog_name = "sys_call.img";
     size_t filesize = 0;
     addr_t source = find_address(prog_name, &filesize);
@@ -138,7 +137,7 @@ void *load_program(char *prog_name){
         return NULL;
     }
     
-    void *dest = page_alloc(filesize);
+    RCregion *dest = rc_alloc(filesize);
     if(!dest){
         send_line("[ERROR][filesys]: can't allocate space for program!");
         return NULL;
@@ -147,7 +146,7 @@ void *load_program(char *prog_name){
     char temp[32];
     send_string("[filesys]: loadling program of size ");
     send_line(itoa(filesize, temp, HEX));
-    memcpy(dest, (void *)source, filesize);
+    memcpy(dest->mem, (void *)source, filesize);
     return dest;
 }
 
@@ -156,7 +155,7 @@ void *load_program(char *prog_name){
 /// @param args needed arguments
 int run_prog(char *prog_name, char **args){
     // TODO: how to run with arguments?
-    void *dest = load_program(prog_name);
+    RCregion *dest = load_program(prog_name);
     if(!dest) return 1;
 
     create_prog_thread(dest);

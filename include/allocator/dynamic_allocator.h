@@ -7,7 +7,7 @@
 
 void init_memory_pool();
 
-void *kmalloc(size_t size);
-void kfree(void *target);
+void *dyna_alloc(size_t size);
+void dyna_free(void *target);
 
 #endif

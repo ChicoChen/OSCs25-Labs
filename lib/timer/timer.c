@@ -36,7 +36,7 @@ void timer_interrupt_handler(){
         iter->callback_func(iter->args); // !scheduler() wont return from here upon switch
         // TODO: fix implementation here, or any timer interrupt after context-switch, will trigger callback
         iter = iter->next;
-        kfree((void *)current);
+        dyna_free((void *)current);
     }
     events.head = iter;
     if(iter) {
@@ -54,7 +54,7 @@ int add_timer_event(uint64_t offset, void (*callback_func)(void *arg), void *arg
     uint64_t current_clock, freq;
     get_timer(&current_clock, &freq);
     
-    TimerEvent *new_event = (TimerEvent *)kmalloc(TIMEREVENT_BYTESIZE);
+    TimerEvent *new_event = (TimerEvent *)dyna_alloc(TIMEREVENT_BYTESIZE);
     if(!new_event) return 1;
     
     new_event->callback_func = callback_func;

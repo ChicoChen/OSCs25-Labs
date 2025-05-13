@@ -23,7 +23,7 @@ static uint64_t switch_interval = ~0;
 
 // ----- forward decls -----
 
-void thread_init(Thread *target_thread, Task assigned, void *args, void *prog);
+void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *prog);
 void task_wrapper(void *, uint64_t *state);
 void launch_user_process(void *prog_entry);
 bool thread_alive(Thread* thread);
@@ -45,16 +45,16 @@ void init_thread_sys(){
     get_timer(&count, &freq);
     switch_interval = freq >> 5;
 
-    idle_thread = (Thread *)kmalloc(THREAD_SIZE);
+    idle_thread = (Thread *)dyna_alloc(THREAD_SIZE);
     thread_init(idle_thread, idle, NULL, NULL);
     
-    systemd = (Thread *)kmalloc(THREAD_SIZE);
+    systemd = (Thread *)dyna_alloc(THREAD_SIZE);
     thread_init(systemd, NULL, NULL, NULL);
     asm volatile("msr tpidr_el1, %[init_thread]" : :[init_thread]"r"(systemd->thread_state) :);
 }
 
-void make_thread(Task assigned_func, void *args, void* prog){
-    Thread *new_thread = (Thread *)kmalloc(THREAD_SIZE);
+void make_thread(Task assigned_func, void *args, RCregion* prog){
+    Thread *new_thread = (Thread *)dyna_alloc(THREAD_SIZE);
     thread_init(new_thread, assigned_func, args, prog);
     
     // insert into queue
@@ -62,7 +62,7 @@ void make_thread(Task assigned_func, void *args, void* prog){
     queue_push(&run_queue, &new_thread->node);
 }
 
-void create_prog_thread(void *prog_entry){
+void create_prog_thread(RCregion *prog_entry){
     // 1. create thread
     // 2. jump to el0, notice return address
     // 3. schedule to execute it 
@@ -92,7 +92,7 @@ Thread *get_curr_thread(){
 }
 
 // ----- local functions -----
-void thread_init(Thread *target_thread, Task assigned, void *args, void *prog){
+void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *prog){
     target_thread->id = total_thread++;
     target_thread->task = assigned;
     target_thread->priority = 0;
@@ -130,7 +130,7 @@ void task_wrapper(void *old_state, uint64_t *new_state){
 
 void launch_user_process(void *args){
     Thread *curr = get_curr_thread();
-    _el1_to_el0(curr->prog, (void *)curr->thread_state[STATE_USER_SP]);
+    _el1_to_el0(curr->prog->mem, (void *)curr->thread_state[STATE_USER_SP]);
     // program itself is responsible for calling sys_exit()
 }
 
@@ -163,7 +163,7 @@ void kill_zombies(){
         page_free((void *)(dead_thread->prog));
         page_free((void *)(dead_thread->thread_state[STATE_USER_SP]));
         page_free((void *)(dead_thread->thread_state[STATE_KERNEL_SP]));
-        kfree((void *)dead_thread);
+        dyna_free((void *)dead_thread);
     }
 }
 

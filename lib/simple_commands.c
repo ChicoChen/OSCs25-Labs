@@ -47,8 +47,8 @@ Command commands[] = {
     {"memalloc", memalloc,      "allocate memory for a string."},
     {"palloc", demo_page_alloc, "demoing page_alloc())"},
     {"pfree", demo_page_free,   "demoing page_free()"},
-    {"kalloc", demo_dyna_alloc, "demoing kmalloc()"},
-    {"kfree", demo_dyna_free,   "demoing kfree()"},
+    {"kalloc", demo_dyna_alloc, "demoing dyna_alloc()"},
+    {"dyna_free", demo_dyna_free,   "demoing dyna_free()"},
     {"memdemo", seq_alloc_free, "demo memory allocation"},
     
     {"reboot", reset,           "reboot the device"},
@@ -128,7 +128,7 @@ int demo_page_free(void *arg){
 int demo_dyna_alloc(void *arg){
     char *queried_size = *((char **)arg);
     size_t query = (size_t)atoui(queried_size, DEC);
-    void *addr = kmalloc(query);
+    void *addr = dyna_alloc(query);
     send_string("\nget address ");
     char temp[16];
     send_line(itoa((unsigned int)addr, temp, HEX));
@@ -138,7 +138,7 @@ int demo_dyna_alloc(void *arg){
 int demo_dyna_free(void *arg){
     char *target_address = *((char **)arg);
     void *query = (void *)atoui(target_address, HEX);
-    kfree(query);
+    dyna_free(query);
     return 0;
 }
 

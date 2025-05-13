@@ -52,10 +52,10 @@ void init_memory_pool(){
     }
 }
 
-void *kmalloc(size_t size){
+void *dyna_alloc(size_t size){
     size_t pool_idx = get_pool_idx(size);
 #ifdef DYNAMIC_ALLOC_LOGGER
-    send_string("[logger][dynamic_alloc]: kmalloc() size ");
+    send_string("[logger][dynamic_alloc]: dyna_alloc() size ");
     send_string(itoa(size, logger_buffer, DEC));
 #endif
 
@@ -65,7 +65,7 @@ void *kmalloc(size_t size){
     return alloc_obj(target_slab);
 }
 
-void kfree(void *target){
+void dyna_free(void *target){
     if(!is_allocated(target)){
         send_line("[ERROR][dynamic alloc]: address is not allocated by dyna_allocator");
         return;

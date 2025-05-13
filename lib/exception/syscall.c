@@ -1,7 +1,7 @@
 #include "exception/syscall.h"
 #include "exception/exception.h"
 #include "thread/thread.h"
-#include "allocator/page_allocator.h"
+#include "allocator/rc_region.h"
 #include "file_sys/initramfs.h"
 #include "mini_uart.h"
 #include "str_utils.h"
@@ -33,8 +33,10 @@ void init_syscalls(){
 }
 
 void invoke_syscall(uint64_t *stack_frame){
+    ENABLE_DAIF;
     uint64_t syscall = stack_frame[SYSCALL_IDX];
     handlers[syscall](stack_frame);
+    DISABLE_DAIF;
 }
 
 // ----- local functions -----
@@ -55,19 +57,19 @@ void getpid(uint64_t *stack_frame){
 }
 
 void uart_read(uint64_t *stack_frame){
-    ENABLE_DAIF;
+    // ENABLE_DAIF;
     char *buf = (char *)stack_frame[0];
     size_t size = (size_t) stack_frame[1];
     SYS_RETURN(read_to_buf(buf, size));
-    DISABLE_DAIF;
+    // DISABLE_DAIF;
 }
 
 void uart_write(uint64_t *stack_frame){
-    ENABLE_DAIF;
+    // ENABLE_DAIF;
     char *buf = (char *)stack_frame[0];
     size_t size = (size_t) stack_frame[1];
     SYS_RETURN(send_from_buf(buf, size));
-    DISABLE_DAIF;
+    // DISABLE_DAIF;
 }
 
 /// @brief syscall to execute a program on current thread.
@@ -79,11 +81,11 @@ void exec(uint64_t *stack_frame){
     
     //clear old program section
     Thread *curr_thread = get_curr_thread();
-    page_free(curr_thread->prog);
+    rc_free(curr_thread->prog);
 
     // allocate new stack and prog
-    void *new_dest = load_program(name);
-    stack_frame[ELR_IDX] = (uint64_t)new_dest;
+    RCregion *new_prog = load_program(name);
+    stack_frame[ELR_IDX] = (uint64_t)new_prog->mem;
     asm volatile(
         "msr sp_el0, %[user_sp]"
         :

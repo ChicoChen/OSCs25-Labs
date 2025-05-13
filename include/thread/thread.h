@@ -3,6 +3,7 @@
 
 #include "basic_type.h"
 #include "template/list.h"
+#include "allocator/rc_region.h"
 
 #define STATE_FP 10
 #define STATE_LR 11
@@ -16,7 +17,7 @@
 typedef void (*Task)(void *args);
 
 typedef struct{
-    void *prog;
+    RCregion *prog;
     uint32_t id;
     uint32_t priority;
     uint64_t thread_state[14]; // need 16-byte aligned
@@ -28,8 +29,8 @@ typedef struct{
 
 
 void init_thread_sys();
-void make_thread(Task assigned_func, void *args, void* prog);
-void create_prog_thread(void *prog_entry);
+void make_thread(Task assigned_func, void *args, RCregion* prog);
+void create_prog_thread(RCregion *prog_entry);
 void schedule();
 
 void thread_preempt(void *args);
