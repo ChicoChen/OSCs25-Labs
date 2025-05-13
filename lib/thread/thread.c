@@ -1,4 +1,5 @@
 #include "thread/thread.h"
+#include "exception/exception.h"
 #include "allocator/dynamic_allocator.h"
 #include "allocator/page_allocator.h"
 #include "template/queue.h"
@@ -12,21 +13,21 @@
 
 #define STATE_FP 10
 #define STATE_LR 11
-#define STATE_SP 12
-#define STATE_DONE 13
+#define STATE_USER_SP 12
+#define STATE_KERNEL_SP 13
 
-#define THREAD_STACK_SIZE 0x1000
+#define THREAD_STACK_SIZE USER_STACK_SIZE
 
 #define THREAD_STATE_SIZE (8 * 14)
 #define THREAD_STATE_OFFSET 16
-#define THREAD_SIZE (16 + THREAD_STATE_SIZE + LISTNODE_SIZE)
+#define THREAD_SIZE (28 + THREAD_STATE_SIZE + LISTNODE_SIZE)
 typedef struct{
     Task task;
-    // void *args;
     uint32_t id;
     uint32_t priority;
     uint64_t thread_state[14]; // need 16-byte aligned
-    // currently gurantee alignment because (slab header + prior data members)'s size are multiple of 16
+    void *args;
+    bool alive;
     ListNode node;
 }Thread;
 
@@ -42,9 +43,10 @@ static uint64_t switch_interval = ~0;
 
 // ----- forward decls -----
 
-void thread_init(Thread *target_thrad, Task assigned);
+void thread_init(Thread *target_thread, Task assigned, void *args);
 Thread *get_curr_thread();
 void task_wrapper(void *, uint64_t *state);
+void launch_user_process(void *prog_entry);
 bool thread_alive(Thread* thread);
 void kill_zombies();
 
@@ -65,20 +67,28 @@ void init_thread_sys(){
     switch_interval = freq >> 5;
 
     idle_thread = (Thread *)kmalloc(THREAD_SIZE);
-    thread_init(idle_thread, idle);
+    thread_init(idle_thread, idle, NULL);
     
     systemd = (Thread *)kmalloc(THREAD_SIZE);
-    thread_init(systemd, NULL);
-    asm volatile("msr tpidr_el1, %[init_thread]" : :[init_thread]"r"(systemd) :);
+    thread_init(systemd, NULL, NULL);
+    asm volatile("msr tpidr_el1, %[init_thread]" : :[init_thread]"r"(systemd->thread_state) :);
 }
 
-void make_thread(Task assigned_func){
+void make_thread(Task assigned_func, void *args){
     Thread *new_thread = (Thread *)kmalloc(THREAD_SIZE);
-    thread_init(new_thread, assigned_func);
+    thread_init(new_thread, assigned_func, args);
     
     // insert into queue
-    list_init(&new_thread->node);
+    node_init(&new_thread->node);
     queue_push(&run_queue, &new_thread->node);
+}
+
+void create_prog_thread(void *prog_entry){
+    // 1. create thread
+    // 2. jump to el0, notice return address
+    // 3. schedule to execute it 
+    // 4. todo: leave memory reclaiming to idle
+    make_thread(launch_user_process, prog_entry);
 }
 
 void schedule(){
@@ -99,34 +109,30 @@ void schedule(){
 
 uint32_t get_current_id(){
     Thread *curr = get_curr_thread();
-    return (curr)? curr->id: 0;
+    return (curr)? curr->id: 1;
 }
-
-void thread_preempt(void *args){
-    // todo: setup timer interrput for context switch
-    // add_timer_event();
-
-    schedule();
-}
-
 
 // ----- local functions -----
-
-void thread_init(Thread *target_thrad, Task assigned){
-    target_thrad->id = total_thread++;
-    target_thrad->task = assigned;
-    target_thrad->priority = 0;
+void thread_init(Thread *target_thread, Task assigned, void *args){
+    target_thread->id = total_thread++;
+    target_thread->task = assigned;
+    target_thread->priority = 0;
+    target_thread->args = args;
+    target_thread->alive = true;
 
     for(size_t i = 0; i < 14; i++){
         switch(i){
         case STATE_LR:
-            target_thrad->thread_state[i] = (uint64_t)task_wrapper;
+            target_thread->thread_state[i] = (uint64_t)task_wrapper;
             break;
-        case STATE_SP:
-            target_thrad->thread_state[i] = (uint64_t)page_alloc(THREAD_STACK_SIZE) + THREAD_STACK_SIZE - 16;
+        case STATE_USER_SP:
+            target_thread->thread_state[i] = (uint64_t)page_alloc(USER_STACK_SIZE) + USER_STACK_SIZE - 16;
+            break;
+        case STATE_KERNEL_SP:
+            target_thread->thread_state[i] = (uint64_t)page_alloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE - 16;
             break;
         default: // STATE_FP and others
-            target_thrad->thread_state[i] = 0;    
+            target_thread->thread_state[i] = 0;
         }
     }
 }
@@ -137,19 +143,26 @@ Thread *get_curr_thread(){
 }
 
 bool thread_alive(Thread* thread){
-    return !(thread->thread_state[STATE_DONE]);
+    return !(thread->alive);
 }
 
-void task_wrapper(void *, uint64_t *state){
-    Thread *curr = GET_CONTAINER(state, Thread, thread_state);
-    curr->task();
-    exit();
-} // !lr will point to entry point of this func, exit need to resolve this
+void task_wrapper(void *old_state, uint64_t *new_state){
+    Thread *curr = GET_CONTAINER(new_state, Thread, thread_state);
+    curr->task(curr->args);
+    exit(); //todo: replace with sys_call_exit()
+} 
+
+void launch_user_process(void *prog_entry){
+    uint64_t *curr_state = get_curr_thread_state(); 
+    _el1_to_el0(prog_entry, (void *)curr_state[STATE_USER_SP]);
+    // program itself is responsible for calling sys_exit()
+}
 
 void exit(){
     Thread *curr_thread = get_curr_thread();
-    curr_thread->thread_state[STATE_DONE] = true;
+    curr_thread->alive = false;
     queue_push(&dead_queue, &curr_thread->node);
+    //! exit() could run in el0, cause schedule() die cause try to access el1 register
     schedule();
 }
 
@@ -164,11 +177,13 @@ void kill_zombies(){
     while(!queue_empty(&dead_queue)){
         ListNode *head = queue_pop(&dead_queue);
         Thread *dead_thread = GET_CONTAINER(head, Thread, node);
-        dead_thread->thread_state[STATE_SP] &= ~(THREAD_STACK_SIZE - 1);
+        dead_thread->thread_state[STATE_USER_SP] &= ~(USER_STACK_SIZE - 1);
+        dead_thread->thread_state[STATE_KERNEL_SP] &= ~(KERNEL_STACK_SIZE - 1);
         char temp[20];
         send_string("[logger][Scheduler] kill pid ");
         send_line(itoa(dead_thread->id, temp, HEX));
-        page_free((void *)(dead_thread->thread_state[STATE_SP]));
+        page_free((void *)(dead_thread->thread_state[STATE_USER_SP]));
+        page_free((void *)(dead_thread->thread_state[STATE_KERNEL_SP]));
         kfree((void *)dead_thread);
     }
 }
@@ -183,8 +198,9 @@ void __switch_thread(){
         "stp x25, x26, [x0, 16 * 3] \n"
         "stp x27, x28, [x0, 16 * 4] \n"
         "stp fp, lr, [x0, 16 * 5] \n" // <- points to next line after switch_to()
-        "mov x9, sp \n"
-        "str x9, [x0, 16 * 6] \n"
+        "mrs x9, sp_el0 \n"
+        "mov x10, sp \n" // sp_el1
+        "stp x9, x10, [x0, 16 * 6] \n"
 
         "ldp x19, x20, [x1, 16 * 0] \n"
         "ldp x21, x22, [x1, 16 * 1] \n"
@@ -192,8 +208,9 @@ void __switch_thread(){
         "ldp x25, x26, [x1, 16 * 3] \n"
         "ldp x27, x28, [x1, 16 * 4] \n"
         "ldp fp, lr, [x1, 16 * 5] \n"
-        "ldr x9, [x1, 16 * 6] \n"
-        "mov sp,  x9 \n"
+        "ldp x9, x10, [x1, 16 * 6] \n"
+        "mov sp, x10 \n"
+        "msr sp_el0, x9 \n"
         "msr tpidr_el1, x1 \n"
         "ret \n"
     );

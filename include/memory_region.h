@@ -21,7 +21,8 @@ extern void *_stack_top;
 #define KERNEL_END (addr_t)&_stack_top
 
 // memory region for user program
-#define USER_STACK_SIZE 0x010000 // 64KB space
+#define USER_STACK_SIZE 0x040000 // 256KB space
+#define KERNEL_STACK_SIZE 0x010000 // 64KB space
 
 // dtb address, defined in kernel8.S
 extern void *_dtb_addr;

@@ -1,6 +1,8 @@
 #include "file_sys/initramfs.h"
 #include "devicetree/dtb.h"
 #include "exception/exception.h"
+#include "allocator/page_allocator.h"
+#include "thread/thread.h"
 #include "memory_region.h"
 #include "base_address.h"
 #include "utils.h"
@@ -137,12 +139,19 @@ int exec_user_prog(char *prog_name, char **args){
         return 1;
     }
     
-    addr_t dest = USER_PROG_START;
-    for(size_t size = 0; size < filesize; size += 4){ //file content is padded to 4 bytes
-        *(uint32_t *)(dest + size) = *(uint32_t *)(source + size);
+    void *dest = page_alloc(filesize);
+    if(!dest){
+        send_line("[ERROR][filesys]: can't allocate space for program!");
+        return 1;
     }
-
-    _el1_to_el0(USER_PROG_START, USER_STACK_TOP);
+    
+    char temp[32];
+    send_string("[filesys]: loadling program of size ");
+    send_line(itoa(filesize, temp, HEX));
+    memcpy(dest, (void *)source, filesize);
+    
+    create_prog_thread(dest);
+    schedule();
     return 0;
 }
 

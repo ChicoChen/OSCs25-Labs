@@ -3,10 +3,11 @@
 
 #include "basic_type.h"
 
-typedef void (*Task)();
+typedef void (*Task)(void *args);
 
 void init_thread_sys();
-void make_thread(Task assigned_func);
+void make_thread(Task assigned_func, void *args);
+void create_prog_thread(void *prog_entry);
 void schedule();
 
 void thread_preempt(void *args);

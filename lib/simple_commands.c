@@ -30,7 +30,7 @@ int demo_dyna_alloc(void *arg);
 int demo_dyna_free(void *arg);
 int seq_alloc_free(void *arg);
 
-void fork_dummy();
+void fork_dummy(void *args);
 int kernel_demo(void *arg);
 
 Command commands[] = {
@@ -161,7 +161,7 @@ int seq_alloc_free(void *arg){
     return 0;
 }
 
-void fork_dummy(){
+void fork_dummy(void *args){
     char buffer[16];
     for(int i = 0; i < 10; ++i) {
         send_string("Thread id: ");
@@ -176,7 +176,7 @@ void fork_dummy(){
 
 int kernel_demo(void *args) {
     for(int i = 0; i < 4; ++i) {
-        make_thread(fork_dummy);
+        make_thread(fork_dummy, NULL);
     }
     idle();
 
