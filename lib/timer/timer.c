@@ -8,6 +8,7 @@ static EventQueue events;
 
 void print_tick_message();
 static void set_timeout(uint64_t target_cval);
+void enable_el0_timer();
 
 // ----- public interfaces ------
 
@@ -20,6 +21,7 @@ void init_core_timer(){
     events.initialized = true;
     enable_core_timer(false);
     *CORE0_TIMER_IRQ_CTRL = 2; //unmask core0 timer interrupt
+    enable_el0_timer();
 }
 
 void timer_interrupt_handler(){
@@ -131,3 +133,9 @@ void print_tick_message(){
     _send_line_("]", sync_send_data);
 }
 
+void enable_el0_timer(){
+    uint64_t tmp;
+    asm volatile("mrs %0, cntkctl_el1" : "=r"(tmp));
+    tmp |= 1;
+    asm volatile("msr cntkctl_el1, %0" : : "r"(tmp));
+}

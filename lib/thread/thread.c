@@ -24,7 +24,7 @@ static uint64_t switch_interval = ~0;
 // ----- forward decls -----
 
 void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *prog);
-void task_wrapper(void *, uint64_t *state);
+void thread_entry(void *, uint64_t *state);
 void launch_user_process(void *prog_entry);
 bool thread_alive(Thread* thread);
 void kill_zombies();
@@ -53,13 +53,14 @@ void init_thread_sys(){
     asm volatile("msr tpidr_el1, %[init_thread]" : :[init_thread]"r"(systemd->thread_state) :);
 }
 
-void make_thread(Task assigned_func, void *args, RCregion* prog){
+Thread *make_thread(Task assigned_func, void *args, RCregion* prog){
     Thread *new_thread = (Thread *)dyna_alloc(THREAD_SIZE);
     thread_init(new_thread, assigned_func, args, prog);
     
     // insert into queue
     node_init(&new_thread->node);
     queue_push(&run_queue, &new_thread->node);
+    return new_thread;
 }
 
 void create_prog_thread(RCregion *prog_entry){
@@ -91,6 +92,35 @@ Thread *get_curr_thread(){
     return GET_CONTAINER(curr_state, Thread, thread_state);
 }
 
+void kill_thread(int target_id){
+    // suicide
+    if(target_id == get_curr_thread()->id){
+        terminate_thread();
+        return;
+    }
+    
+    // target in run queue?
+    Queue *location = &run_queue;
+    Thread *iter = GET_CONTAINER(queue_head(&run_queue), Thread, node);
+    while(iter && iter->id != target_id){
+        iter = GET_CONTAINER(iter->node.next, Thread, node); 
+    }
+    
+    if(!iter) { // target in wait queue?
+        location = &wait_queue;
+        iter = GET_CONTAINER(queue_head(&wait_queue), Thread, node);
+        while(iter && iter->id != target_id){
+            iter = GET_CONTAINER(iter->node.next, Thread, node); 
+        }
+    }
+
+    if(iter){ // found target
+        iter->alive = false;
+        queue_erase(location, &iter->node);
+        queue_push(&dead_queue, &iter->node);
+    }
+}
+
 // ----- local functions -----
 void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *prog){
     target_thread->id = total_thread++;
@@ -103,13 +133,13 @@ void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *pro
     for(size_t i = 0; i < 14; i++){
         switch(i){
         case STATE_LR:
-            target_thread->thread_state[i] = (uint64_t)task_wrapper;
+            target_thread->thread_state[i] = (uint64_t)thread_entry;
             break;
         case STATE_USER_SP:
-            target_thread->thread_state[i] = (uint64_t)page_alloc(USER_STACK_SIZE) + USER_STACK_SIZE - 16;
+            target_thread->thread_state[i] = GET_STACK_BOTTOM((uint64_t)page_alloc(USER_STACK_SIZE), USER_STACK_SIZE);
             break;
         case STATE_KERNEL_SP:
-            target_thread->thread_state[i] = (uint64_t)page_alloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE - 16;
+            target_thread->thread_state[i] = GET_STACK_BOTTOM((uint64_t)page_alloc(KERNEL_STACK_SIZE), KERNEL_STACK_SIZE);
             break;
         default: // STATE_FP and others
             target_thread->thread_state[i] = 0;
@@ -119,13 +149,13 @@ void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *pro
 
 
 bool thread_alive(Thread* thread){
-    return !(thread->alive);
+    return thread->alive;
 }
 
-void task_wrapper(void *old_state, uint64_t *new_state){
+void thread_entry(void *old_state, uint64_t *new_state){
     Thread *curr = GET_CONTAINER(new_state, Thread, thread_state);
     curr->task(curr->args);
-    exit(); //todo: replace with sys_call_exit()
+    terminate_thread(); // this line won't execute if curr->task is launch_user_process()
 } 
 
 void launch_user_process(void *args){
@@ -134,11 +164,11 @@ void launch_user_process(void *args){
     // program itself is responsible for calling sys_exit()
 }
 
-void exit(){
+void terminate_thread(){
     Thread *curr_thread = get_curr_thread();
     curr_thread->alive = false;
-    queue_push(&dead_queue, &curr_thread->node);
-    //! exit() could run in el0, cause schedule() die cause try to access el1 register
+    queue_push(&dead_queue, &(curr_thread->node));
+    //! if terminate_thread() run in el0, schedule() will die cause trying to access tpidr_el1
     schedule();
 }
 
@@ -156,14 +186,14 @@ void kill_zombies(){
         dead_thread->thread_state[STATE_USER_SP] &= ~(USER_STACK_SIZE - 1);
         dead_thread->thread_state[STATE_KERNEL_SP] &= ~(KERNEL_STACK_SIZE - 1);
         
-        char temp[20];
-        send_string("[logger][Scheduler] kill pid ");
-        send_line(itoa(dead_thread->id, temp, HEX));
-
-        page_free((void *)(dead_thread->prog));
+        rc_free(dead_thread->prog); // forked thread could still be running and need prog.
         page_free((void *)(dead_thread->thread_state[STATE_USER_SP]));
         page_free((void *)(dead_thread->thread_state[STATE_KERNEL_SP]));
         dyna_free((void *)dead_thread);
+        
+        char temp[20];
+        send_string("[logger][Scheduler] kill pid ");
+        send_line(itoa(dead_thread->id, temp, HEX));
     }
 }
 

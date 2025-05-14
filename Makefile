@@ -13,9 +13,12 @@ EXCEPTION = exception
 NO_WARN = -Wno-incompatible-library-redeclaration -Wno-asm-operand-widths -Wno-pointer-to-int-cast -Wno-int-to-void-pointer-cast -Wno-c23-extensions
 COMPILE_FLAG = -nostdlib -ffreestanding -g $(NO_WARN)
 LLDB_FLAG = -s -S
+
+# ---------- QEMU flag ----------
 MINI_UART_FLAG = -serial null -serial stdio
 INITRAMFS_FLAG = -initrd initramfs.cpio
 DTB_FLAG = -dtb bcm2710-rpi-3-b-plus.dtb
+DISPLAY_FLAG = -display gtk
 
 # ---------- Dependencies ----------
 LOADER_DEPS = mini_uart str_utils utils
@@ -75,13 +78,13 @@ load_debug: loader kernel initramfs
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(INITRAMFS_FLAG) $(LLDB_FLAG) 
 
 run: kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(INITRAMFS_FLAG) $(DTB_FLAG)
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(DISPLAY_FLAG) $(MINI_UART_FLAG) $(INITRAMFS_FLAG) $(DTB_FLAG) 
 
 debug: kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -$(DISPLAY_FLAG) $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
 
 asm: kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none -d in_asm $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(DISPLAY_FLAG) -d in_asm $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
 
 # ---------- Debug Section ----------
 clean: 

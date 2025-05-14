@@ -112,6 +112,9 @@ _lower_sync_entry:
   save_all
   mov x0, sp
   bl lower_sync_handler
+  
+.global _fork_entry
+_fork_entry:
   load_all
   eret
 
