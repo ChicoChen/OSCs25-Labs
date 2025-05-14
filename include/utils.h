@@ -19,7 +19,7 @@
 void delay(unsigned int cycle);
 
 // memory and address manipulation
-void *memcpy(void *str1, void *str2, size_t size);
+void *memcpy(void *dest, void *source, size_t size);
 void *align(void *addr, size_t base);
 void addr_set(addr_t addr, uint32_t value);
 

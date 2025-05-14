@@ -29,6 +29,25 @@ ListNode* queue_pop(Queue *que){
     return result;
 }
 
+void queue_erase(Queue *que, ListNode *target){
+    if(!target || !que) return;
+
+    if(target == que->front){
+        queue_pop(que);
+        return;
+    }
+
+    if(target == que->back){
+        que->back = target->prev;
+    }
+    list_remove(target);
+    que->size--;
+}
+
+ListNode *queue_head(Queue *que){
+    return que->front;
+}
+
 size_t get_queue_size(Queue *que){
     return que->size;
 }

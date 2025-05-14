@@ -17,6 +17,7 @@
 
 int cmd_help(void* args);
 int hello_world(void* args);
+int mailbox_entry(void* args);
 int reset(void *arg);
 int exec_wrapper(void *args);
 
@@ -68,6 +69,13 @@ int cmd_help(void *arg){
 
 int hello_world(void *arg){
     send_line("Hello world!");
+    return 0;
+}
+
+int mailbox_entry(void* args){
+    send_line("Mailbox info:");
+    print_board_revision();
+    print_arm_memory();
     return 0;
 }
 

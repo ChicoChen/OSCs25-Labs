@@ -15,6 +15,9 @@ void queue_init(Queue *que);
 void queue_push(Queue *que, ListNode *new);
 ListNode* queue_pop(Queue *que);
 
+void queue_erase(Queue *que, ListNode *target);
+
+ListNode *queue_head(Queue *que);
 size_t get_queue_size(Queue *que);
 bool queue_empty(Queue *que);
 
