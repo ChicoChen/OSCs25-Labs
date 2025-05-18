@@ -111,9 +111,14 @@ int delayed_printline(void *arg){
     char** arguments = (char **)arg;
     size_t message_len = get_size(arguments[0]);
     void *message = simple_alloc(message_len); //! deallocator
+    
     memcpy(message, arguments[0], message_len);
     uint64_t offset = atoi(arguments[1], DEC);
-    return add_timer_event(offset, send_void_line, message);
+    
+    uint64_t current_count;
+    uint64_t freq;
+    get_timer(&current_count, &freq);
+    return add_timer_event(offset * freq, send_void_line, message);
 }
 
 int demo_page_alloc(void *arg){

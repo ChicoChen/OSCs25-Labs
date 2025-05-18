@@ -73,7 +73,7 @@ _exception_vector_table:
 
   b _lower_sync_entry
   .align 7
-  b _default_handler
+  b _lower_irq_entry
   .align 7
   b _default_handler
   .align 7
@@ -103,7 +103,7 @@ _default_handler:
 _curr_irq_entry:
   msr DAIFSet, 0xf
   save_all
-  bl curr_irq_handler
+  bl irq_handler
   load_all
   eret
 
@@ -118,12 +118,19 @@ _fork_entry:
   load_all
   eret
 
+_lower_irq_entry:
+  msr DAIFSet, 0xf
+  save_all
+  bl irq_handler
+  load_all
+  eret
+
 .global _el1_to_el0
 .type _el1_to_el0 %function
 _el1_to_el0:
   msr DAIFSet, 0xf
   msr elr_el1, x0
   msr sp_el0, x1
-  mov x0, 0x3c0
+  mov x0, 0x340
   msr spsr_el1, x0
   eret

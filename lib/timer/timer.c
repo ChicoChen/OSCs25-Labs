@@ -12,14 +12,14 @@ void enable_el0_timer();
 
 // ----- public interfaces ------
 
-void enable_core_timer(bool enable){
+void config_core_timer(bool enable){
     asm volatile("msr cntp_ctl_el0, %[flag]"::[flag]"r"(enable):);
 }
 
 void init_core_timer(){
     events.head = NULL;
     events.initialized = true;
-    enable_core_timer(false);
+    config_core_timer(false);
     *CORE0_TIMER_IRQ_CTRL = 2; //unmask core0 timer interrupt
     enable_el0_timer();
 }
@@ -30,26 +30,24 @@ void timer_interrupt_handler(){
     get_timer(&current_count, &freq);
     
     // trigger all due timeout event
-    TimerEvent* iter = events.head;
-    while(iter){
-        if(iter->target_clock > current_count) break;
+    while(events.head){
+        if(events.head->target_clock > current_count) break;
 
-        TimerEvent *current = iter;
-        iter->callback_func(iter->args); // !scheduler() wont return from here upon switch
-        // TODO: fix implementation here, or any timer interrupt after context-switch, will trigger callback
-        iter = iter->next;
-        dyna_free((void *)current);
+        TimerEvent *temp = events.head;
+        events.head = events.head->next;
+        temp->callback_func(temp->args); // !scheduler() wont return from here upon switch
+        dyna_free((void *)temp);
     }
-    events.head = iter;
-    if(iter) {
-        set_timeout(iter->target_clock);
-        enable_core_timer(true);
+
+    if(events.head) {
+        set_timeout(events.head->target_clock);
+        config_core_timer(true);
     }
 }
 
 int add_timer_event(uint64_t offset, void (*callback_func)(void *arg), void *args){
     if(!events.initialized){
-        _send_line_("[timer not init!]", sync_send_data);
+        _send_line_("[timer] timer not init!", sync_send_data);
         return 1;
     }
     
@@ -57,14 +55,17 @@ int add_timer_event(uint64_t offset, void (*callback_func)(void *arg), void *arg
     get_timer(&current_clock, &freq);
     
     TimerEvent *new_event = (TimerEvent *)dyna_alloc(TIMEREVENT_BYTESIZE);
-    if(!new_event) return 1;
+    if(!new_event) {
+        _send_line_("[timer] can't alloc timer event", sync_send_data);
+        return 1;
+    }
     
     new_event->callback_func = callback_func;
     new_event->args = args;
-    new_event->target_clock = current_clock + offset * freq;
+    new_event->target_clock = current_clock + offset;
     
     //critical section
-    enable_core_timer(false);
+    config_core_timer(false);
     TimerEvent *iter = events.head;
     TimerEvent *prev = NULL;
     while(iter != NULL){
@@ -79,12 +80,12 @@ int add_timer_event(uint64_t offset, void (*callback_func)(void *arg), void *arg
         set_timeout(new_event->target_clock);
     }
     
-    enable_core_timer(true);
+    config_core_timer(true);
     return 0;
 }
 
 void clear_timer_event(void (*callback_func)(void *arg)){
-    enable_core_timer(false);
+    config_core_timer(false);
     while(events.head){
         if(events.head->callback_func == tick_callback) events.head = events.head -> next;
         else break;
@@ -96,12 +97,15 @@ void clear_timer_event(void (*callback_func)(void *arg)){
         if(iter->next->callback_func == tick_callback) iter->next = iter->next->next;
         else iter = iter->next;
     }
-    enable_core_timer(true);
+    config_core_timer(true);
 }
 
 void tick_callback(void *args){
     print_tick_message();
-    add_timer_event(2, tick_callback, args);
+    uint64_t current_count;
+    uint64_t freq;
+    get_timer(&current_count, &freq);
+    add_timer_event(2 * freq, tick_callback, args);
     return;
 }
 

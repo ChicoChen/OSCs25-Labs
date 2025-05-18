@@ -20,7 +20,7 @@ typedef struct{
 } EventQueue;
 
 void init_core_timer();
-void enable_core_timer(bool enable);
+void config_core_timer(bool enable);
 void get_timer(uint64_t *count, uint64_t *freq);
 
 void timer_interrupt_handler();
