@@ -55,8 +55,8 @@ void init_memory_pool(){
 void *dyna_alloc(size_t size){
     size_t pool_idx = get_pool_idx(size);
 #ifdef DYNAMIC_ALLOC_LOGGER
-    send_string("[logger][dynamic_alloc]: dyna_alloc() size ");
-    send_string(itoa(size, logger_buffer, DEC));
+    _send_string_("[logger][dynamic_alloc]: dyna_alloc() size ", sync_send_data);
+    _send_string_(itoa(size, logger_buffer, DEC), sync_send_data);
 #endif
 
     PageHeader *target_slab = find_avail_slab(pool_idx);
@@ -67,7 +67,7 @@ void *dyna_alloc(size_t size){
 
 void dyna_free(void *target){
     if(!is_allocated(target)){
-        send_line("[ERROR][dynamic alloc]: address is not allocated by dyna_allocator");
+        _send_line_("[ERROR][dynamic alloc]: address is not allocated by dyna_allocator", sync_send_data);
         return;
     }
     size_t page_idx = to_block_idx(target);
@@ -78,7 +78,7 @@ void dyna_free(void *target){
         && memory_pool[get_pool_idx(slab->obj_size)] != slab)
     {
 #ifdef DYNAMIC_ALLOC_LOGGER
-        send_line("[logger][dynamic_alloc]: freeing empty slab");
+        _send_line_("[logger][dynamic_alloc]: freeing empty slab", sync_send_data);
 #endif
         // clear_page_header(slab); //don't really need to since no other module use page_alloc
         page_free((void *)slab);
@@ -116,14 +116,14 @@ PageHeader *find_avail_slab(size_t pool_idx){
     if(pool_idx >= TOTAL_CACHE) return NULL;
     size_t obj_size = pool_idx * OBJ_STEP + OBJ_MIN_SIZE;
 #ifdef DYNAMIC_ALLOC_LOGGER
-    send_string(", pool-");
-    send_line(itoa(obj_size, logger_buffer, DEC));        
+    _send_string_(", pool-", sync_send_data);
+    _send_line_(itoa(obj_size, logger_buffer, DEC), sync_send_data);        
 #endif
 
 // if no page is allocated
     if(!memory_pool[pool_idx]){
 #ifdef DYNAMIC_ALLOC_LOGGER
-        send_line("[logger][dynamic_alloc]: allocating new slab");
+        _send_line_("[logger][dynamic_alloc]: allocating new slab", sync_send_data);
 #endif
         memory_pool[pool_idx] = (PageHeader *)page_alloc(PAGE_SIZE);
         init_page_header(memory_pool[pool_idx], obj_size);
@@ -134,8 +134,8 @@ PageHeader *find_avail_slab(size_t pool_idx){
     while(is_full(slab)) {
         if(slab->node.next == NULL){ // reach the end of slab
 #ifdef DYNAMIC_ALLOC_LOGGER
-            send_string("[logger][dynamic_alloc]: alloc new slab for pool-");
-            send_line(itoa(obj_size, logger_buffer, DEC));
+            _send_string_("[logger][dynamic_alloc]: alloc new slab for pool-", sync_send_data);
+            _send_line_(itoa(obj_size, logger_buffer, DEC), sync_send_data);
 #endif
             PageHeader *next_slab = (PageHeader *)page_alloc(PAGE_SIZE);
             init_page_header(next_slab, obj_size);
@@ -145,8 +145,8 @@ PageHeader *find_avail_slab(size_t pool_idx){
     }
 
 #ifdef DYNAMIC_ALLOC_LOGGER
-    send_string("[logger][dynamic_alloc]: find avail space in slab ");
-    send_line(itoa(to_block_idx((void *) slab), logger_buffer, HEX));
+    _send_string_("[logger][dynamic_alloc]: find avail space in slab ", sync_send_data);
+    _send_line_(itoa(to_block_idx((void *) slab), logger_buffer, HEX), sync_send_data);
 #endif
     return slab;
 }
@@ -154,7 +154,7 @@ PageHeader *find_avail_slab(size_t pool_idx){
 void *alloc_obj(PageHeader *target_page){
     size_t obj_idx = fill_bitmap(target_page);
     if(obj_idx >= target_page->capacity){
-        send_line("[ERROR][dynamic_alloc] fill_bitmap() returned idx out-of-range");
+        _send_line_("[ERROR][dynamic_alloc] fill_bitmap() returned idx out-of-range", sync_send_data);
         return NULL;        
     }
     target_page->avail--;   
@@ -162,12 +162,12 @@ void *alloc_obj(PageHeader *target_page){
     addr_t page_addr = (addr_t)target_page;
     void *obj_address = (void *) (page_addr + ELEMENT_OFFSET + obj_idx * target_page->obj_size);
 #ifdef DYNAMIC_ALLOC_LOGGER
-    send_string("[logger][dynamic_alloc]: allocate object at idx ");
-    send_string(itoa(obj_idx, logger_buffer, DEC));
-    send_string("(address: ");
-    send_string(itoa((uint32_t)obj_address, logger_buffer, HEX));
-    send_string("), remained slot: ");
-    send_line(itoa(target_page->avail, logger_buffer, DEC));
+    _send_string_("[logger][dynamic_alloc]: allocate object at idx ", sync_send_data);
+    _send_string_(itoa(obj_idx, logger_buffer, DEC), sync_send_data);
+    _send_string_("(address: ", sync_send_data);
+    _send_string_(itoa((uint32_t)obj_address, logger_buffer, HEX), sync_send_data);
+    _send_string_("), remained slot: ", sync_send_data);
+    _send_line_(itoa(target_page->avail, logger_buffer, DEC), sync_send_data);
 #endif
 
     return obj_address;
@@ -177,23 +177,23 @@ bool free_obj(void* target_addr, PageHeader* slab){
     size_t obj_size = slab->obj_size;
     size_t target_offset = (addr_t)target_addr - (addr_t)slab;
     if(target_offset <  ELEMENT_OFFSET) {
-        send_line("[ERROR][dynamic alloc]: addr invalid, overlapped with slab header");
+        _send_line_("[ERROR][dynamic alloc]: addr invalid, overlapped with slab header", sync_send_data);
         return false;
     }
     
     size_t obj_idx = (target_offset - ELEMENT_OFFSET) / obj_size;
     if(obj_idx > slab->capacity){
-        send_line("[ERROR][dynamic alloc]: addr invalid, exceed slab's capacity");
+        _send_line_("[ERROR][dynamic alloc]: addr invalid, exceed slab's capacity", sync_send_data);
         return false;
     }
 
     slab->bitmap[obj_idx/64] &= ~(1 << (obj_idx % 64));
     slab->avail++;
 #ifdef DYNAMIC_ALLOC_LOGGER
-    send_string("[logger][dynamic_alloc]: erased object at slot ");
-    send_string(itoa(obj_idx, logger_buffer, DEC));
-    send_string(" remaining objects: ");
-    send_line(itoa(slab->capacity - slab->avail, logger_buffer, DEC));
+    _send_string_("[logger][dynamic_alloc]: erased object at slot ", sync_send_data);
+    _send_string_(itoa(obj_idx, logger_buffer, DEC), sync_send_data);
+    _send_string_(" remaining objects: ", sync_send_data);
+    _send_line_(itoa(slab->capacity - slab->avail, logger_buffer, DEC), sync_send_data);
 #endif
     return true;
 }
@@ -213,7 +213,7 @@ size_t fill_bitmap(PageHeader *target_page){
         }
     }
 
-    send_line("[ERROR][dynamic allocator] func fill_bitmap() can't find empty space");
+    _send_line_("[ERROR][dynamic allocator] func fill_bitmap() can't find empty space", sync_send_data);
     return -1;
 }
 

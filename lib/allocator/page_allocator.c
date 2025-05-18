@@ -70,10 +70,10 @@ void memory_reserve(void *start, size_t size){
     size_t start_idx = to_block_idx((void *)start_page);
     size_t end_idx = to_block_idx((void *)end_page);
 #ifdef PAGE_RESERVE_LOGGER
-    send_string("[logger][mem_reserve]: reserving block ");
-    send_string(itoa(start_idx, pagelog_buffer, HEX));
-    async_send_data('~');
-    send_line(itoa(end_idx, pagelog_buffer, HEX));
+    _send_string_("[logger][mem_reserve]: reserving block ", sync_send_data);
+    _send_string_(itoa(start_idx, pagelog_buffer, HEX), sync_send_data);
+    sync_send_data('~');
+    _send_line_(itoa(end_idx, pagelog_buffer, HEX), sync_send_data);
 #endif
     
     while(start_idx <= end_idx){
@@ -87,12 +87,12 @@ void memory_reserve(void *start, size_t size){
             size_t buddy = GET_BUDDY(parent, --curr_order);
 
 #ifdef PAGE_RESERVE_LOGGER
-            send_string("[logger][mem_reserve]: split ");
-            send_string(itoa(parent, pagelog_buffer, HEX));
-            send_string(" and ");
-            send_string(itoa(buddy, pagelog_buffer, HEX));
-            send_string(" with order of ");
-            send_line(itoa(curr_order, pagelog_buffer, DEC));
+            _send_string_("[logger][mem_reserve]: split ", sync_send_data);
+            _send_string_(itoa(parent, pagelog_buffer, HEX), sync_send_data);
+            _send_string_(" and ", sync_send_data);
+            _send_string_(itoa(buddy, pagelog_buffer, HEX), sync_send_data);
+            _send_string_(" with order of ", sync_send_data);
+            _send_line_(itoa(curr_order, pagelog_buffer, DEC), sync_send_data);
 #endif
             //insert the splited block back to free_list
             COND_SWAP(buddy <= start_idx, size_t, parent, buddy);
@@ -104,17 +104,17 @@ void memory_reserve(void *start, size_t size){
         free_list_remove(start_idx, sub_block_order);
         size_t next_start = start_idx + (1 << sub_block_order);
 #ifdef PAGE_RESERVE_LOGGER
-        send_string("[logger][mem_reserve]: block ");
-        send_string(itoa(start_idx, pagelog_buffer, HEX));
-        async_send_data('~');
-        send_string(itoa(next_start - 1, pagelog_buffer, HEX));
-        send_line(" reserved");
+        _send_string_("[logger][mem_reserve]: block ", sync_send_data);
+        _send_string_(itoa(start_idx, pagelog_buffer, HEX), sync_send_data);
+        sync_send_data('~');
+        _send_string_(itoa(next_start - 1, pagelog_buffer, HEX), sync_send_data);
+        _send_line_(" reserved", sync_send_data);
 #endif
         start_idx = next_start;   
     }
 
 #ifdef PAGE_RESERVE_LOGGER
-    async_send_data('\n');
+    sync_send_data('\n');
 #endif
 }
 
@@ -126,8 +126,8 @@ void *page_alloc(size_t size){
     size_t order = calculate_order(size); // find minumum order.
 
 #ifdef PAGE_ALLOC_LOGGER
-    send_string("[logger][page_allocator]: request size ");
-    send_string(itoa(size, pagelog_buffer, HEX));
+    _send_string_("[logger][page_allocator]: request size ", sync_send_data);
+    _send_string_(itoa(size, pagelog_buffer, HEX), sync_send_data);
 #endif
 
     // find available free space
@@ -138,15 +138,15 @@ void *page_alloc(size_t size){
         break;
     }
     if(!target){
-        _send_line_("\n[ERROR][page_allocator]: can't find a large enough space", async_send_data);
+        _send_line_("\n[ERROR][page_allocator]: can't find a large enough space", sync_send_data);
         return NULL;
     }
 
 #ifdef PAGE_ALLOC_LOGGER
-    send_string(", find block ");
-    send_string(itoa(target->idx, pagelog_buffer, HEX));
-    send_string(" with order ");
-    send_line(itoa(target->status, pagelog_buffer, DEC));
+    _send_string_(", find block ", sync_send_data);
+    _send_string_(itoa(target->idx, pagelog_buffer, HEX), sync_send_data);
+    _send_string_(" with order ", sync_send_data);
+    _send_line_(itoa(target->status, pagelog_buffer, DEC), sync_send_data);
 #endif
 
     // split if find a larger block
@@ -157,12 +157,12 @@ void *page_alloc(size_t size){
         free_list_insert(page_array + buddy_idx, level);
         
 #ifdef PAGE_ALLOC_LOGGER
-        send_string("[logger][page_allocator]: split block to ");
-        send_string(itoa(target->idx, pagelog_buffer, HEX));
-        send_string(" and ");
-        send_string(itoa(buddy_idx, pagelog_buffer, HEX));
-        send_string(", order ");
-        send_line(itoa(level, pagelog_buffer, DEC));
+        _send_string_("[logger][page_allocator]: split block to ", sync_send_data);
+        _send_string_(itoa(target->idx, pagelog_buffer, HEX), sync_send_data);
+        _send_string_(" and ", sync_send_data);
+        _send_string_(itoa(buddy_idx, pagelog_buffer, HEX), sync_send_data);
+        _send_string_(", order ", sync_send_data);
+        _send_line_(itoa(level, pagelog_buffer, DEC), sync_send_data);
 #endif
     }
 
@@ -177,13 +177,13 @@ void page_free(void *target){
     size_t target_idx = to_block_idx(target);
     PageBlock* target_block = page_array + target_idx;
     if(target_block->status != PAGE_OCCUPIED){ // not freeable
-        send_line("[Error][page_allocator]: not an allocated page");
+        _send_line_("[Error][page_allocator]: not an allocated page", sync_send_data);
         return; 
     }
 
 #ifdef PAGE_ALLOC_LOGGER
-    send_string("[logger][page_allocator]: freeing block ");
-    send_line(itoa(target_idx, pagelog_buffer, HEX));
+    _send_string_("[logger][page_allocator]: freeing block ", sync_send_data);
+    _send_line_(itoa(target_idx, pagelog_buffer, HEX), sync_send_data);
 #endif
     
     for(size_t level = 0; level <= BLOCK_MAX_ORDER; level++){
@@ -191,25 +191,25 @@ void page_free(void *target){
         // smaller buddy shouldn't be grouped by others,
         if(buddy_idx < target_idx && page_array[buddy_idx].status == PAGE_GROUPED){
             char temp_error_buf[16];
-            send_string("[Error][page_allocator]: buddy ");
-            send_string(itoa(buddy_idx, temp_error_buf, HEX));
-            send_line("shouldn't be grouped");
+            _send_string_("[Error][page_allocator]: buddy ", sync_send_data);
+            _send_string_(itoa(buddy_idx, temp_error_buf, HEX), sync_send_data);
+            _send_line_("shouldn't be grouped", sync_send_data);
             return;
         }
 
         // when buddy isn't empty or is at max level => terminate merging
         if(!BUDDY_MERGEABLE(buddy_idx, level) || level == BLOCK_MAX_ORDER){
 #ifdef PAGE_ALLOC_LOGGER
-            send_string("[logger][page_allocator]: generate new free block ");
-            send_string(itoa(target_idx, pagelog_buffer, HEX));
-            send_string(" with order ");
-            send_line(itoa(level, pagelog_buffer, DEC));            
+            _send_string_("[logger][page_allocator]: generate new free block ", sync_send_data);
+            _send_string_(itoa(target_idx, pagelog_buffer, HEX), sync_send_data);
+            _send_string_(" with order ", sync_send_data);
+            _send_line_(itoa(level, pagelog_buffer, DEC), sync_send_data);            
             
             if(level != BLOCK_MAX_ORDER){
-                send_string("[logger][page_allocator]: terminate because buddy ");
-                send_string(itoa(buddy_idx, pagelog_buffer, HEX));
-                send_string("'s status is ");
-                send_line(status_to_string(buddy_idx, pagelog_buffer));
+                _send_string_("[logger][page_allocator]: terminate because buddy ", sync_send_data);
+                _send_string_(itoa(buddy_idx, pagelog_buffer, HEX), sync_send_data);
+                _send_string_("'s status is ", sync_send_data);
+                _send_line_(status_to_string(buddy_idx, pagelog_buffer), sync_send_data);
             }
 #endif
             page_array[target_idx].status = level;
@@ -257,12 +257,12 @@ void init_block(PageBlock *block, PageStatus status, size_t idx){
 size_t merge_page_block(size_t target_idx, size_t buddy_idx, size_t level){
 #ifdef PAGE_ALLOC_LOGGER
     if(page_array[buddy_idx].status >= 0){
-        send_string("[logger][page_allocator]: mergeing ");
-        send_string(itoa(target_idx , pagelog_buffer, HEX));
-        send_string(" with buddy ");
-        send_string(itoa(buddy_idx, pagelog_buffer, HEX));
-        send_string(" of status ");
-        send_line(status_to_string(buddy_idx, pagelog_buffer));
+        _send_string_("[logger][page_allocator]: mergeing ", sync_send_data);
+        _send_string_(itoa(target_idx , pagelog_buffer, HEX), sync_send_data);
+        _send_string_(" with buddy ", sync_send_data);
+        _send_string_(itoa(buddy_idx, pagelog_buffer, HEX), sync_send_data);
+        _send_string_(" of status ", sync_send_data);
+        _send_line_(status_to_string(buddy_idx, pagelog_buffer), sync_send_data);
     }
 #endif
 
