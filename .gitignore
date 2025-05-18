@@ -3,3 +3,4 @@ build/
 scripts/debug.lldb.sh
 *.cpio
 rootfs/syscall.img
+log

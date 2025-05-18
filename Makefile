@@ -19,7 +19,8 @@ MINI_UART_FLAG = -serial null -serial stdio
 INITRAMFS_FLAG = -initrd initramfs.cpio
 DTB_FLAG = -dtb bcm2710-rpi-3-b-plus.dtb
 DISPLAY_FLAG = -display gtk
-
+REMOTE_FLAG = -display vnc=:1
+EXCEPTION_LOG = -d int -D log
 # ---------- Dependencies ----------
 LOADER_DEPS = mini_uart str_utils utils
 
@@ -72,19 +73,25 @@ kernel: src_obj lib_obj
 
 # ---------- Debug Section ----------
 load: loader kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(MINI_UART_FLAG)  $(INITRAMFS_FLAG) -d in_asm $(LLDB_FLAG) 
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(MINI_UART_FLAG)  $(INITRAMFS_FLAG) -d in_asm $(LLDB_FLAG)
 
 load_debug: loader kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(INITRAMFS_FLAG) $(LLDB_FLAG) 
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(INITRAMFS_FLAG) $(LLDB_FLAG)
 
 run: kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(DISPLAY_FLAG) $(MINI_UART_FLAG) $(INITRAMFS_FLAG) $(DTB_FLAG) 
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(DISPLAY_FLAG) $(MINI_UART_FLAG) $(INITRAMFS_FLAG) $(DTB_FLAG)
 
 debug: kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -$(DISPLAY_FLAG) $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(DISPLAY_FLAG) $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG) $(EXCEPTION_LOG)
 
 asm: kernel initramfs
 	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(DISPLAY_FLAG) -d in_asm $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
+
+remote_run: kernel initramfs
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(REMOTE_FLAG) $(MINI_UART_FLAG) $(INITRAMFS_FLAG) $(DTB_FLAG)
+
+remote_debug: kernel initramfs
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(REMOTE_FLAG) $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG) $(EXCEPTION_LOG)
 
 # ---------- Debug Section ----------
 clean: 
