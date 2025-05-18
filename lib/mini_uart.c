@@ -1,3 +1,4 @@
+#include "exception/exception.h"
 #include "mini_uart.h"
 #include "utils.h"
 
@@ -12,8 +13,15 @@ typedef struct{
 AsyncBuf async_recv;
 AsyncBuf async_tran;
 
-void enable_aux_interrupt() { *ENABLE_IRQs1 = (1u << 29); }
-void disable_aux_interrupt() { *DISABLE_IRQs1 = (1u << 29); }
+void enable_aux_interrupt() {
+    *ENABLE_IRQs1 = (1u << 29);
+    get_curr_workload()->uart_mask = false;
+}
+
+void disable_aux_interrupt() {
+    *DISABLE_IRQs1 = (1u << 29);
+    get_curr_workload()->uart_mask = true;
+}
 
 void init_uart(){
     //set GPFSEL1
