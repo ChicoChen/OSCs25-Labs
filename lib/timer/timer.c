@@ -1,4 +1,5 @@
 #include "timer/timer.h"
+#include "exception/exception.h"
 #include "allocator/dynamic_allocator.h"
 #include "mini_uart.h"
 #include "str_utils.h"
@@ -14,6 +15,7 @@ void enable_el0_timer();
 
 void config_core_timer(bool enable){
     asm volatile("msr cntp_ctl_el0, %[flag]"::[flag]"r"(enable):);
+    get_curr_workload()->timer_mask = BOOL(!enable);
 }
 
 void init_core_timer(){

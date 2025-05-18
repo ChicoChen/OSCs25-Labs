@@ -25,8 +25,14 @@ static uint64_t switch_interval = ~0;
 
 void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *prog);
 void thread_entry(void *, uint64_t *state);
-void launch_user_process(void *prog_entry);
 bool thread_alive(Thread* thread);
+
+void launch_user_process(void *prog_entry);
+
+void switch_context(void *arg);
+void enable_context_swtich();
+
+void idle();
 void kill_zombies();
 
 // defined in __switch_thread()
@@ -50,6 +56,7 @@ void init_thread_sys(){
     
     systemd = (Thread *)dyna_alloc(THREAD_SIZE);
     thread_init(systemd, NULL, NULL, NULL);
+    systemd->excepts = get_curr_workload();
     asm volatile("msr tpidr_el1, %[init_thread]" : :[init_thread]"r"(systemd->thread_state) :);
 }
 
@@ -60,17 +67,20 @@ Thread *make_thread(Task assigned_func, void *args, RCregion* prog){
     // insert into queue
     node_init(&new_thread->node);
     queue_push(&run_queue, &new_thread->node);
+    if(total_thread == 3){ // as the first thread added
+        enable_context_swtich();
+    }
     return new_thread;
 }
 
 void create_prog_thread(RCregion *prog_entry){
-    // 1. create thread
-    // 2. jump to el0, notice return address
-    // 3. schedule to execute it 
-    // 4. todo: leave memory reclaiming to idle
+    // 1. create thread which start from given address in el0
+    // 2. schedule to execute it, leave memory reclaiming to idle thread
     make_thread(launch_user_process, NULL, prog_entry);
 }
 
+/// @brief Schedule next thread and jump to execute it.
+/// @note Upon calling, won't return until current thread is scheduled to execute again.
 void schedule(){
     // get current thread and next thread
     Thread *preemptee = get_curr_thread();
@@ -78,12 +88,11 @@ void schedule(){
         queue_push(&run_queue, &preemptee->node);
     }   
     
-    ListNode* head = queue_pop(&run_queue);
+    ListNode *head = queue_pop(&run_queue);
     Thread *preemptor = (!head)? idle_thread: GET_CONTAINER(head, Thread, node);
     if(preemptor == preemptee) return;
     
-    // save current state and context switch
-    // get preempt during this call, will resume from here
+    swap_event_workload(preemptor->excepts);
     switch_to(preemptee->thread_state, preemptor->thread_state);
 }
 
@@ -130,6 +139,9 @@ void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *pro
     target_thread->prog = prog;
     target_thread->alive = true;
 
+    target_thread->excepts = dyna_alloc(EXCEPT_WORKLOAD_SIZE);
+    init_workload(target_thread->excepts);
+
     for(size_t i = 0; i < 14; i++){
         switch(i){
         case STATE_LR:
@@ -147,22 +159,18 @@ void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *pro
     }
 }
 
-
 bool thread_alive(Thread* thread){
     return thread->alive;
 }
 
+/// @brief The thread execution wrapper, all thread start from here when first scheduled
+/// @param old_state state of previous thread, stored in register x0 by switch_to
+/// @param new_state state of current thread
 void thread_entry(void *old_state, uint64_t *new_state){
     Thread *curr = GET_CONTAINER(new_state, Thread, thread_state);
     curr->task(curr->args);
-    terminate_thread(); // this line won't execute if curr->task is launch_user_process()
+    terminate_thread(); // this line won't be executed if curr->task is launch_user_process()
 } 
-
-void launch_user_process(void *args){
-    Thread *curr = get_curr_thread();
-    _el1_to_el0(curr->prog->mem, (void *)curr->thread_state[STATE_USER_SP]);
-    // program itself is responsible for calling sys_exit()
-}
 
 void terminate_thread(){
     Thread *curr_thread = get_curr_thread();
@@ -172,10 +180,28 @@ void terminate_thread(){
     schedule();
 }
 
+/// @brief assign this as a task to a thread when want to run user program as a new thread.
+void launch_user_process(void *args){
+    Thread *curr = get_curr_thread();
+    _el1_to_el0(curr->prog->mem, (void *)curr->thread_state[STATE_USER_SP]);
+    // program itself is responsible for calling sys_exit()
+}
+
+void switch_context(void *arg){
+    add_timer_event(switch_interval, switch_context, NULL);
+    // <- at this point, timer is unmasked by add_timer_event()
+    // currently cause no problem in schedule() due to long context switch period and exception priority.
+    schedule();    
+}
+
+void enable_context_swtich(){
+    add_timer_event(switch_interval, switch_context, NULL);
+}
+
 void idle(){
     while(true){
         kill_zombies();
-        schedule();
+        // schedule(); timer interrupt will call schedule instead
     }
 }
 
@@ -189,6 +215,8 @@ void kill_zombies(){
         rc_free(dead_thread->prog); // forked thread could still be running and need prog.
         page_free((void *)(dead_thread->thread_state[STATE_USER_SP]));
         page_free((void *)(dead_thread->thread_state[STATE_KERNEL_SP]));
+        free_workload(dead_thread->excepts);
+        
         dyna_free((void *)dead_thread);
         
         char temp[20];
@@ -218,9 +246,9 @@ void __switch_thread(){
         "ldp x27, x28, [x1, 16 * 4] \n"
         "ldp fp, lr, [x1, 16 * 5]   \n"
         "ldp x9, x10, [x1, 16 * 6]  \n"
-        "mov sp, x10 \n"
-        "msr sp_el0, x9 \n"
-        "msr tpidr_el1, x1 \n"
+        "mov sp, x10 \n"                // kernel sp
+        "msr sp_el0, x9 \n"             // user sp
+        "msr tpidr_el1, x1          \n"
         "ret \n"
     );
     asm volatile(
