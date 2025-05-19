@@ -110,23 +110,29 @@ void kill_thread(int target_id){
     
     // target in run queue?
     Queue *location = &run_queue;
-    Thread *iter = GET_CONTAINER(queue_head(&run_queue), Thread, node);
-    while(iter && iter->id != target_id){
-        iter = GET_CONTAINER(iter->node.next, Thread, node); 
-    }
-    
-    if(!iter) { // target in wait queue?
-        location = &wait_queue;
-        iter = GET_CONTAINER(queue_head(&wait_queue), Thread, node);
-        while(iter && iter->id != target_id){
+    Thread *target = NULL;
+    // TODO: find in queue feature
+    if(!queue_empty(&run_queue)){
+        Thread *iter = GET_CONTAINER(queue_head(&run_queue), Thread, node);
+        while(iter->id != target_id && iter->node.next){
             iter = GET_CONTAINER(iter->node.next, Thread, node); 
         }
+        if(iter->id == target_id) target = iter;
+    }
+    
+    if(!target && !queue_empty(&wait_queue)) { // target in wait queue?
+        location = &wait_queue;
+        Thread *iter = GET_CONTAINER(queue_head(&wait_queue), Thread, node);
+        while(iter->id != target_id && iter->node.next){
+            iter = GET_CONTAINER(iter->node.next, Thread, node); 
+        }
+        if(iter->id == target_id) target - iter;
     }
 
-    if(iter){ // found target
-        iter->alive = false;
-        queue_erase(location, &iter->node);
-        queue_push(&dead_queue, &iter->node);
+    if(target){ // found target
+        target->alive = false;
+        queue_erase(location, &target->node);
+        queue_push(&dead_queue, &target->node);
     }
 }
 
