@@ -154,11 +154,6 @@ size_t send_from_buf(char *buffer, size_t size){
 }
 
 
-void send_void_line(void *vstr){
-    char *line = (char *)vstr;
-    send_line(line);
-}
-
 void _send_line_(char *line, void (*send_func)(char)){
     _send_string_(line, send_func);
     send_func('\r');
@@ -166,7 +161,7 @@ void _send_line_(char *line, void (*send_func)(char)){
 }
 
 // ----- exception handler * async send/recv -----
-void uart_except_handler(){
+void uart_except_handler(uint64_t *trap_frame){
     // disable_aux_interrupt(); already disable by exception handler
     uint32_t interrupt_id = (*(AUX_MU_IIR_REG) >> 1) & 0b11;
     if(interrupt_id == 2){

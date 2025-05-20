@@ -107,6 +107,12 @@ int tick_wrapper(void *arg){
     return 1;
 }
 
+
+void printline_callback(void *vstr, uint64_t *trap_frame){
+    char *line = (char *)vstr;
+    send_line(line);
+}
+
 int delayed_printline(void *arg){
     char** arguments = (char **)arg;
     size_t message_len = get_size(arguments[0]);
@@ -118,7 +124,7 @@ int delayed_printline(void *arg){
     uint64_t current_count;
     uint64_t freq;
     get_timer(&current_count, &freq);
-    return add_timer_event(offset * freq, send_void_line, message);
+    return add_timer_event(offset * freq, printline_callback, message);
 }
 
 int demo_page_alloc(void *arg){
