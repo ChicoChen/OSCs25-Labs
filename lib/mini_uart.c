@@ -125,7 +125,7 @@ void async_send_data(char c){
     async_tran.buffer[idx] = c;
     async_tran.len++; // len might be modify by rx interrupt if not atomic
     // atomic_add((addr_t) &async_tran.len, 1); //TODO: ldxr cause translation fault
-    if(!(*AUX_MU_IER_REG & 0b10)) *AUX_MU_IER_REG |= 0b10; // enable interrupt has new data to send
+    if(!(*AUX_MU_IER_REG & 0b10)) *AUX_MU_IER_REG |= 0b10; // new data to send, enable interrupt
 }
 
 //default async sending

@@ -47,11 +47,11 @@ void handle_signal(uint64_t *trap_frame){
     temp_stack = (uint64_t *)memcpy((void *)temp_stack, (void *)trap_frame, TRAP_FRAME_SIZE);
     asm volatile("msr sp_el0, %[new_user_sp]":: [new_user_sp]"r"(temp_stack):);
 
-    trap_frame[LR_IDX] = (uint64_t)exit_signal_handler; // configure lr
-
-    // modify to elr_el1 on stack, jump to handler
+    trap_frame[LR_IDX] = (uint64_t)exit_signal_handler;
     trap_frame[ELR_IDX] = (uint64_t)handler;
     trap_frame[SPSR_IDX] = 0x340;
+
+    //? wait, how does program able to send/write during handler. what if timer preeempt an uart interrupt?
 }
 
 /// @brief leaving block for registered signal handler, runs in EL0
