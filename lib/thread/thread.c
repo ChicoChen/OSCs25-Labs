@@ -90,7 +90,7 @@ void schedule(){
     
     ListNode *head = queue_pop(&run_queue);
     Thread *preemptor = (!head)? idle_thread: GET_CONTAINER(head, Thread, node);
-    if(preemptor == preemptee) return;
+    // if(preemptor == preemptee) return;
     
     swap_event_workload(preemptor->excepts);
     switch_to(preemptee->thread_state, preemptor->thread_state);
@@ -224,10 +224,8 @@ void launch_user_process(void *args){
 void switch_context(void *arg, uint64_t *trap_frame){
     add_timer_event(switch_interval, switch_context, NULL);
     // <- at this point, timer is unmasked by add_timer_event()
-    // currently cause no problem in schedule() due to long context switch period and exception priority.
-    schedule();
+    schedule(); // currently fine due to long context switch period and exception priority.
 
-    // this part will be execute after process being switched back
     if(get_curr_thread()->last_signal != NUM_SIGNALS) handle_signal(trap_frame);
 }
 

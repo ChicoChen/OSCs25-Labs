@@ -51,6 +51,7 @@ void handle_signal(uint64_t *trap_frame){
 
     // modify to elr_el1 on stack, jump to handler
     trap_frame[ELR_IDX] = (uint64_t)handler;
+    trap_frame[SPSR_IDX] = 0x340;
 }
 
 /// @brief leaving block for registered signal handler, runs in EL0
