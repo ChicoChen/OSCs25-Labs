@@ -1,6 +1,7 @@
 #include "exception/exception.h"
 #include "mini_uart.h"
 #include "utils.h"
+#include "str_utils.h"
 
 #define ASYNC_BUFFER_SIZE 2048u
 
@@ -189,6 +190,11 @@ void uart_except_handler(uint64_t *trap_frame){
             async_tran.len--;
         }
     }
-    else send_line("[unknown mini_uart interrupt!]");
+    else{
+        char temp[16];
+        _send_string_("[unknown mini_uart interrupt!]: ", sync_send_data);
+        _send_line_(itoa(interrupt_id, temp, DEC), sync_send_data);
+    }
+
     enable_aux_interrupt();
 }

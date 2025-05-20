@@ -177,7 +177,9 @@ void page_free(void *target){
     size_t target_idx = to_block_idx(target);
     PageBlock* target_block = page_array + target_idx;
     if(target_block->status != PAGE_OCCUPIED){ // not freeable
-        _send_line_("[Error][page_allocator]: not an allocated page", sync_send_data);
+        char temp_error_buf[16];
+        _send_string_("[Error][page_allocator]: not an allocated page: ", sync_send_data);
+        _send_line_(itoa((uint64_t)target, temp_error_buf, HEX), sync_send_data);
         return; 
     }
 
