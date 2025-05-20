@@ -1,14 +1,12 @@
 #include "exception/exception.h"
 #include "exception/syscall.h"
+#include "exception/trap_frame.h"
 #include "timer/timer.h"
 #include "allocator/dynamic_allocator.h"
 #include "template/list.h"
 #include "mini_uart.h"
 #include "str_utils.h"
 #include "utils.h"
-
-static void enableDAIF() { asm volatile("msr DAIFClr, 0xf" :::); }
-static void disableDAIF() { asm volatile("msr DAIFSet, 0xf" :::); }
 
 typedef enum {
     // lower
@@ -18,10 +16,11 @@ typedef enum {
     // higher
 }IrqPriority;
 
-#define EXCEPT_TASK_SIZE (20 + LISTNODE_SIZE)
+#define EXCEPT_TASK_SIZE (28 + LISTNODE_SIZE)
 typedef struct ExceptTask{
     struct ExceptTask *next;
-    void (*handler)();
+    void (*handler)(uint64_t *);
+    uint64_t *trap_frame;
     ListNode node;
     IrqPriority priority;
 }ExceptTask;
@@ -88,13 +87,14 @@ void init_exception(){
 
 /// @brief Handle and routing all irq from EL0 and EL1
 /// @note will disable recieved interrupt's signal until being handled, keeps it from recurring
-void irq_handler(){
+void irq_handler(uint64_t *trap_frame){
     uint32_t source = *CORE0_INTERRUPT_SOURCE;
     ExceptTask* new_task = query_task();
     if(!new_task) {
         _send_line_("[ERROR][except handler]: can't find avail ExceptTask", sync_send_data);
         return;
     }
+    new_task->trap_frame = trap_frame;
     
     if(source & (0x01u << 1)){
         config_core_timer(false);
@@ -118,11 +118,10 @@ void irq_handler(){
     }
 }
 
-void lower_sync_handler(void *stack_frame){
-    uint64_t *register_state = (uint64_t *)stack_frame;
-    uint64_t EC = (register_state[ESR_IDX] >> 26) & (0b111111);
-    if(EC == SVC) invoke_syscall(register_state);
-    else print_el_message(register_state[SPSR_IDX], register_state[ELR_IDX], register_state[ESR_IDX]);
+void lower_sync_handler(uint64_t *trap_frame){
+    uint64_t EC = (trap_frame[ESR_IDX] >> 26) & (0b111111);
+    if(EC == SVC) invoke_syscall(trap_frame);
+    else print_el_message(trap_frame[SPSR_IDX], trap_frame[ELR_IDX], trap_frame[ESR_IDX]);
 }
 
 
@@ -212,9 +211,9 @@ static ExceptQueue *enqueue_task(ExceptTask *task){
  **/
 static void exec_queue(ExceptQueue *queue){
     while(queue->head){
-        enableDAIF();
-        queue->head->handler();
-        disableDAIF();
+        ENABLE_DAIF;
+        queue->head->handler(queue->head->trap_frame);
+        DISABLE_DAIF;
         
         ExceptTask *done = queue->head;
         queue->head = queue->head->next;
@@ -228,6 +227,7 @@ static void exec_queue(ExceptQueue *queue){
 static void init_except_task(ExceptTask *task){
     task->handler = NULL;
     task->next = NULL;
+    task->trap_frame = NULL;
     node_init(&task->node);
     task->priority = DEFAULT;
 }

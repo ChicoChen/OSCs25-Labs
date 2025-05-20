@@ -6,6 +6,9 @@
 
 #define CORE0_INTERRUPT_SOURCE (volatile uint32_t *)(CORE_INTERRUPT_BASE + 0x60)
 
+#define ENABLE_DAIF asm volatile("msr DAIFClr, 0xf")
+#define DISABLE_DAIF asm volatile("msr DAIFSet, 0xf")
+
 #define EXCEPT_WORKLOAD_SIZE 16
 typedef struct{
     struct ExceptQueue *base_queue;
@@ -19,8 +22,8 @@ void init_exception();
 void _el1_to_el0(void *return_addr, void *user_stack);
 
 void _default_handler();
-void irq_handler();
-void lower_sync_handler(void *stack_frame);
+void irq_handler(uint64_t *trap_frame);
+void lower_sync_handler(uint64_t *trap_frame);
 
 void init_workload(ExceptWorkload *workload);
 void free_workload(ExceptWorkload *workload);

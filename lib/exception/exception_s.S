@@ -103,6 +103,7 @@ _default_handler:
 _curr_irq_entry:
   msr DAIFSet, 0xf
   save_all
+  mov x0, sp
   bl irq_handler
   load_all
   eret
@@ -121,6 +122,7 @@ _fork_entry:
 _lower_irq_entry:
   msr DAIFSet, 0xf
   save_all
+  mov x0, sp
   bl irq_handler
   load_all
   eret

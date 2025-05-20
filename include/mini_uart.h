@@ -25,7 +25,6 @@
 #define DISABLE_IRQs1    (volatile unsigned int*)(ARM_INTERRUPT_BASE + 0x21C)
 #define AUXIRQ          (volatile unsigned int*)(GPIO_BASE + 0x15000)
 
-
 void disable_aux_interrupt();
 void enable_aux_interrupt();
 
@@ -46,9 +45,8 @@ void _send_string_(char *str, void (*send_func)(char));
 
 void send_line(char *line);
 size_t send_from_buf(char *buffer, size_t size);
-void send_void_line(void *vstr);
 void _send_line_(char *line, void (*send_func)(char));
 
 // ----- exceptions -----
-void uart_except_handler();
+void uart_except_handler(uint64_t *trap_frame);
 #endif

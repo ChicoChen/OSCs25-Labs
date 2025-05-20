@@ -26,7 +26,7 @@ void init_core_timer(){
     enable_el0_timer();
 }
 
-void timer_interrupt_handler(){
+void timer_interrupt_handler(uint64_t *trap_frame){
     uint64_t current_count;
     uint64_t freq;
     get_timer(&current_count, &freq);
@@ -37,7 +37,7 @@ void timer_interrupt_handler(){
 
         TimerEvent *temp = events.head;
         events.head = events.head->next;
-        temp->callback_func(temp->args); // !scheduler() wont return from here upon switch
+        temp->callback_func(temp->args, trap_frame); // !scheduler() wont return from here upon switch
         dyna_free((void *)temp);
     }
 
@@ -47,7 +47,7 @@ void timer_interrupt_handler(){
     }
 }
 
-int add_timer_event(uint64_t offset, void (*callback_func)(void *arg), void *args){
+int add_timer_event(uint64_t offset, void (*callback_func)(void *arg, uint64_t *trap_frame), void *args){
     if(!events.initialized){
         _send_line_("[timer] timer not init!", sync_send_data);
         return 1;
@@ -86,7 +86,7 @@ int add_timer_event(uint64_t offset, void (*callback_func)(void *arg), void *arg
     return 0;
 }
 
-void clear_timer_event(void (*callback_func)(void *arg)){
+void clear_timer_event(void (*callback_func)(void *arg, uint64_t *trap_frame)){
     config_core_timer(false);
     while(events.head){
         if(events.head->callback_func == tick_callback) events.head = events.head -> next;
@@ -102,7 +102,7 @@ void clear_timer_event(void (*callback_func)(void *arg)){
     config_core_timer(true);
 }
 
-void tick_callback(void *args){
+void tick_callback(void *args, uint64_t *trap_frame){
     print_tick_message();
     uint64_t current_count;
     uint64_t freq;
