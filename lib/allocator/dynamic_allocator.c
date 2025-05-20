@@ -73,14 +73,18 @@ void dyna_free(void *target){
     size_t page_idx = to_block_idx(target);
     PageHeader *slab = (PageHeader *)to_page_address(page_idx);
     if(!free_obj(target, slab)) return;
-
-    if(slab->avail == slab->capacity
-        && memory_pool[get_pool_idx(slab->obj_size)] != slab)
+    
+    size_t pool_idx = get_pool_idx(slab->obj_size);
+    // slab is empty and is not the only remaining slab in the pool
+    if(slab->avail == slab->capacity 
+        && 
+        !(slab->node.prev == NULL && slab->node.next == NULL))
     {
 #ifdef DYNAMIC_ALLOC_LOGGER
         _send_line_("[logger][dynamic_alloc]: freeing empty slab", sync_send_data);
 #endif
-        // clear_page_header(slab); //don't really need to since no other module use page_alloc
+        if(memory_pool[pool_idx] == slab) memory_pool[pool_idx] = (slab->node.next)? GET_CONTAINER(slab->node.next, PageHeader, node): NULL;
+        list_remove(&slab->node);
         page_free((void *)slab);
     }
 }
