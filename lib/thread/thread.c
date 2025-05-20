@@ -29,7 +29,7 @@ bool thread_alive(Thread* thread);
 
 void launch_user_process(void *prog_entry);
 
-void switch_context(void *arg);
+void switch_context(void *arg, uint64_t *trap_frame);
 void enable_context_swtich();
 
 void idle();
@@ -101,39 +101,70 @@ Thread *get_curr_thread(){
     return GET_CONTAINER(curr_state, Thread, thread_state);
 }
 
-void kill_thread(int target_id){
-    // suicide
+/// @brief find the thread with target_id
+/// @param location: return the pptr toward where the thread resides.
+Thread *find_thread(int target_id, Queue **location){
     if(target_id == get_curr_thread()->id){
-        terminate_thread();
-        return;
+        *location = NULL;
+        return get_curr_thread();
     }
-    
-    // target in run queue?
-    Queue *location = &run_queue;
-    Thread *target = NULL;
-    // TODO: find in queue feature
-    if(!queue_empty(&run_queue)){
+
+    if(!queue_empty(&run_queue)){ // target in run queue?
         Thread *iter = GET_CONTAINER(queue_head(&run_queue), Thread, node);
         while(iter->id != target_id && iter->node.next){
             iter = GET_CONTAINER(iter->node.next, Thread, node); 
         }
-        if(iter->id == target_id) target = iter;
+
+        if(iter->id == target_id){
+            *location = &run_queue;
+            return iter;
+        }
     }
     
-    if(!target && !queue_empty(&wait_queue)) { // target in wait queue?
-        location = &wait_queue;
+    if(!queue_empty(&wait_queue)) { // target in wait queue?
         Thread *iter = GET_CONTAINER(queue_head(&wait_queue), Thread, node);
         while(iter->id != target_id && iter->node.next){
             iter = GET_CONTAINER(iter->node.next, Thread, node); 
         }
-        if(iter->id == target_id) target - iter;
-    }
 
-    if(target){ // found target
-        target->alive = false;
-        queue_erase(location, &target->node);
-        queue_push(&dead_queue, &target->node);
+        if(iter->id == target_id) {
+            *location = &wait_queue;
+            return iter;
+        }
     }
+    
+    return NULL;
+}
+
+/// @brief remove thread form current location and put it into `dead_queue`
+/// @note the timer interrupt needed to be block during this process
+void kill_curr_thread(){
+    
+    // critical section to ensure correctly remove from queue
+    config_core_timer(false);
+    Thread *curr = get_curr_thread();
+    curr->alive = false;
+    queue_push(&dead_queue, &curr->node);
+    config_core_timer(true);
+    
+    schedule();
+}
+
+/// @brief remove thread form current's location and put it into dead_queue
+void kill_thread(Thread *target, Queue *location){
+    if(target == get_curr_thread()){
+        kill_curr_thread(); // need critical section to ensure correctness
+        return;
+    }
+    target->alive = false;
+    queue_erase(location, &target->node);
+    queue_push(&dead_queue, &target->node);
+}
+
+void curr_thread_regis_signal(int signal, SignalHandler handler_func){
+    Thread *curr = get_curr_thread();
+    curr->signal_handlers[signal] = handler_func;
+    // init_sigal_handler(curr->signal_handlers[signal], handler_func);
 }
 
 // ----- local functions -----
@@ -147,6 +178,11 @@ void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *pro
 
     target_thread->excepts = dyna_alloc(EXCEPT_WORKLOAD_SIZE);
     init_workload(target_thread->excepts);
+
+    for(size_t i = 0; i < NUM_SIGNALS; i++){
+        target_thread->signal_handlers[i] = NULL;
+    }
+    target_thread->last_signal = NUM_SIGNALS;
 
     for(size_t i = 0; i < 14; i++){
         switch(i){
@@ -175,16 +211,8 @@ bool thread_alive(Thread* thread){
 void thread_entry(void *old_state, uint64_t *new_state){
     Thread *curr = GET_CONTAINER(new_state, Thread, thread_state);
     curr->task(curr->args);
-    terminate_thread(); // this line won't be executed if curr->task is launch_user_process()
+    kill_curr_thread(); // this line won't be executed if curr->task is launch_user_process()
 } 
-
-void terminate_thread(){
-    Thread *curr_thread = get_curr_thread();
-    curr_thread->alive = false;
-    queue_push(&dead_queue, &(curr_thread->node));
-    //! if terminate_thread() run in el0, schedule() will die cause trying to access tpidr_el1
-    schedule();
-}
 
 /// @brief assign this as a task to a thread when want to run user program as a new thread.
 void launch_user_process(void *args){
@@ -193,11 +221,14 @@ void launch_user_process(void *args){
     // program itself is responsible for calling sys_exit()
 }
 
-void switch_context(void *arg){
+void switch_context(void *arg, uint64_t *trap_frame){
     add_timer_event(switch_interval, switch_context, NULL);
     // <- at this point, timer is unmasked by add_timer_event()
     // currently cause no problem in schedule() due to long context switch period and exception priority.
-    schedule();    
+    schedule();
+
+    // this part will be execute after process being switched back
+    if(get_curr_thread()->last_signal != NUM_SIGNALS) handle_signal(trap_frame);
 }
 
 void enable_context_swtich(){
@@ -221,7 +252,13 @@ void kill_zombies(){
         rc_free(dead_thread->prog); // forked thread could still be running and need prog.
         page_free((void *)(dead_thread->thread_state[STATE_USER_SP]));
         page_free((void *)(dead_thread->thread_state[STATE_KERNEL_SP]));
+        
         free_workload(dead_thread->excepts);
+
+        // for(size_t i = 0; i < NUM_SIGNALS; i++){
+        //     if(!dead_thread->signal_handlers[i]) continue;
+        //     dyna_free(dead_thread->signal_handlers[i]);
+        // }
         
         dyna_free((void *)dead_thread);
         
