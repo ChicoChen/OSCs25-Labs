@@ -7,16 +7,20 @@ ROOTFS = rootfs/
 # ---------- Program Name ----------
 LOADER = loader
 KERNEL = kernel8
-INITRAMFS = initramfs.cpio
+INITRAMFS = m_initramfs.cpio
 EXCEPTION = exception
 # ---------- Compile flag ----------
 NO_WARN = -Wno-incompatible-library-redeclaration -Wno-asm-operand-widths -Wno-pointer-to-int-cast -Wno-int-to-void-pointer-cast -Wno-c23-extensions
-COMPILE_FLAG = -nostdlib -g $(NO_WARN)
+COMPILE_FLAG = -nostdlib -ffreestanding -g $(NO_WARN)
 LLDB_FLAG = -s -S
-MINI_UART_FLAG = -serial null -serial stdio
-INITRAMFS_FLAG = -initrd $(INITRAMFS)
-DTB_FLAG = -dtb bcm2710-rpi-3-b-plus.dtb
 
+# ---------- QEMU flag ----------
+MINI_UART_FLAG = -serial null -serial stdio
+INITRAMFS_FLAG = -initrd initramfs.cpio
+DTB_FLAG = -dtb bcm2710-rpi-3-b-plus.dtb
+DISPLAY_FLAG = -display gtk
+REMOTE_FLAG = -display vnc=:1
+EXCEPTION_LOG = -d int -D log
 # ---------- Dependencies ----------
 LOADER_DEPS = mini_uart str_utils utils
 
@@ -69,19 +73,25 @@ kernel: src_obj lib_obj
 
 # ---------- Debug Section ----------
 load: loader kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(MINI_UART_FLAG)  $(INITRAMFS_FLAG) -d in_asm $(LLDB_FLAG) 
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(MINI_UART_FLAG)  $(INITRAMFS_FLAG) -d in_asm $(LLDB_FLAG)
 
 load_debug: loader kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(INITRAMFS_FLAG) $(LLDB_FLAG) 
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(LOADER).img -display none -serial null -serial pty $(INITRAMFS_FLAG) $(LLDB_FLAG)
 
 run: kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(INITRAMFS_FLAG) $(DTB_FLAG)
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(DISPLAY_FLAG) $(MINI_UART_FLAG) $(INITRAMFS_FLAG) $(DTB_FLAG)
 
 debug: kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(DISPLAY_FLAG) $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG) $(EXCEPTION_LOG)
 
 asm: kernel initramfs
-	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img -display none -d in_asm $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(DISPLAY_FLAG) -d in_asm $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG)
+
+remote_run: kernel initramfs
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(REMOTE_FLAG) $(MINI_UART_FLAG) $(INITRAMFS_FLAG) $(DTB_FLAG)
+
+remote_debug: kernel initramfs
+	qemu-system-aarch64 -M raspi3b -kernel $(BUILD_DIR)$(KERNEL).img $(REMOTE_FLAG) $(MINI_UART_FLAG) $(DTB_FLAG) $(INITRAMFS_FLAG) $(LLDB_FLAG) $(EXCEPTION_LOG)
 
 # ---------- Debug Section ----------
 clean: 

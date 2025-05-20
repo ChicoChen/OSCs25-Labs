@@ -13,9 +13,13 @@
 #include "allocator/page_allocator.h"
 #include "allocator/dynamic_allocator.h"
 
+#include "thread/thread.h"
+
 int cmd_help(void* args);
 int hello_world(void* args);
+int mailbox_entry(void* args);
 int reset(void *arg);
+int exec_wrapper(void *args);
 
 int dts_wrapper(void *arg);
 int tick_wrapper(void *arg);
@@ -34,7 +38,7 @@ Command commands[] = {
 
     {"ls", list_ramfile,        "list files in ramdisk"},
     {"cat", view_ramfile,       "show file content"},
-    {"exec", exec_usr_prog,     "execute user program in initramfs (target currently fixed)"},
+    {"exec", exec_wrapper,     "execute user program in initramfs"},
     {"dts", dts_wrapper,        "show dts content."},
     
     {"tick", tick_wrapper,      "switch on and off timer tick"},
@@ -44,10 +48,10 @@ Command commands[] = {
     {"memalloc", memalloc,      "allocate memory for a string."},
     {"palloc", demo_page_alloc, "demoing page_alloc())"},
     {"pfree", demo_page_free,   "demoing page_free()"},
-    {"kalloc", demo_dyna_alloc, "demoing kmalloc()"},
-    {"kfree", demo_dyna_free,   "demoing kfree()"},
-    {"memdemo", seq_alloc_free, "mem demo case"},
-
+    {"kalloc", demo_dyna_alloc, "demoing dyna_alloc()"},
+    {"dyna_free", demo_dyna_free,   "demoing dyna_free()"},
+    {"memdemo", seq_alloc_free, "demo memory allocation"},
+    
     {"reboot", reset,           "reboot the device"},
     {0, 0, 0} //terminator
 };
@@ -68,6 +72,13 @@ int hello_world(void *arg){
     return 0;
 }
 
+int mailbox_entry(void* args){
+    send_line("Mailbox info:");
+    print_board_revision();
+    print_arm_memory();
+    return 0;
+}
+
 int reset(void *arg) {        
     // int tick = *(int *)arg;
     send_line("rebooting...");
@@ -77,6 +88,13 @@ int reset(void *arg) {
     return 0;
 };
 
+int exec_wrapper(void *args){
+    char **arguments = (char **)args;
+    char *name = arguments[0];
+    char **argv = arguments + 1;
+    return run_prog(name, argv);
+}
+
 int dts_wrapper(void *arg){
     return dtb_parser(print_dts, (addr_t)_dtb_addr);
 }
@@ -84,18 +102,29 @@ int dts_wrapper(void *arg){
 int tick_wrapper(void *arg){
     char *flag = *(char **)arg;
     bool enable = BOOL(atoi(flag, DEC));
-    if(enable) add_event(2, tick_callback, 0);
-    else timer_clear_event(tick_callback);
+    if(enable) add_timer_event(2, tick_callback, 0);
+    else clear_timer_event(tick_callback);
     return 1;
+}
+
+
+void printline_callback(void *vstr, uint64_t *trap_frame){
+    char *line = (char *)vstr;
+    send_line(line);
 }
 
 int delayed_printline(void *arg){
     char** arguments = (char **)arg;
     size_t message_len = get_size(arguments[0]);
     void *message = simple_alloc(message_len); //! deallocator
+    
     memcpy(message, arguments[0], message_len);
     uint64_t offset = atoi(arguments[1], DEC);
-    return add_event(offset, send_void_line, message);
+    
+    uint64_t current_count;
+    uint64_t freq;
+    get_timer(&current_count, &freq);
+    return add_timer_event(offset * freq, printline_callback, message);
 }
 
 int demo_page_alloc(void *arg){
@@ -118,7 +147,7 @@ int demo_page_free(void *arg){
 int demo_dyna_alloc(void *arg){
     char *queried_size = *((char **)arg);
     size_t query = (size_t)atoui(queried_size, DEC);
-    void *addr = kmalloc(query);
+    void *addr = dyna_alloc(query);
     send_string("\nget address ");
     char temp[16];
     send_line(itoa((unsigned int)addr, temp, HEX));
@@ -128,7 +157,7 @@ int demo_dyna_alloc(void *arg){
 int demo_dyna_free(void *arg){
     char *target_address = *((char **)arg);
     void *query = (void *)atoui(target_address, HEX);
-    kfree(query);
+    dyna_free(query);
     return 0;
 }
 

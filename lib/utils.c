@@ -5,14 +5,12 @@ void delay(unsigned int cycle){
     }
 }
 
-void *memcpy(void *str1, void *str2, size_t size){
-    for(byte *byte1 = (byte *)str1, *byte2 = (byte *)str2; size > 0; size--){
-        *byte1 = *byte2;
-        byte1++;
-        byte2++;
+void *memcpy(void *dest, void *source, size_t size){
+    for(byte *byte1 = (byte *)dest, *byte2 = (byte *)source; size > 0; size--){
+        *(byte1++) = *(byte2++);
     }
 
-    return str1;
+    return dest;
 }
 
 void *align(void *addr, size_t base){

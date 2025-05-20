@@ -2,6 +2,7 @@
 #define INITRAMFS_H
 
 #include "basic_type.h"
+#include "allocator/rc_region.h"
 
 #define LS_BUFFER_SIZE 256
 #define MAX_FILENAME 32
@@ -33,7 +34,8 @@ int list_ramfile(void *args);
 int view_ramfile(void *args);
 
 addr_t find_address(char *filename, unsigned int *filesize_ptr);
-int exec_usr_prog(void* args);
+RCregion *load_program(char *prog_name);
+int run_prog(char *name, char **argv);
 
 int check_magic(byte* magic);
 

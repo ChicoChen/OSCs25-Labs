@@ -1,5 +1,7 @@
+#include "exception/exception.h"
 #include "mini_uart.h"
 #include "utils.h"
+#include "str_utils.h"
 
 #define ASYNC_BUFFER_SIZE 2048u
 
@@ -12,8 +14,15 @@ typedef struct{
 AsyncBuf async_recv;
 AsyncBuf async_tran;
 
-void enable_aux_interrupt() { *ENABLE_IRQs1 = (1u << 29); }
-void disable_aux_interrupt() { *DISABLE_IRQs1 = (1u << 29); }
+void enable_aux_interrupt() {
+    *ENABLE_IRQs1 = (1u << 29);
+    get_curr_workload()->uart_mask = false;
+}
+
+void disable_aux_interrupt() {
+    *DISABLE_IRQs1 = (1u << 29);
+    get_curr_workload()->uart_mask = true;
+}
 
 void init_uart(){
     //set GPFSEL1
@@ -93,6 +102,15 @@ int echo_read_line(char *inputline){
     return writehead;
 }
 
+size_t read_to_buf(char *buffer, size_t size){
+    size_t total_read = 0;
+    while(total_read < size){
+        buffer[total_read++] = async_read_data();
+        if(async_recv.len == 0) break;
+    }
+    return total_read;
+}
+
 void sync_send_data(char c){
     int transmit_ready = 0;
     while(!transmit_ready){
@@ -107,7 +125,7 @@ void async_send_data(char c){
     async_tran.buffer[idx] = c;
     async_tran.len++; // len might be modify by rx interrupt if not atomic
     // atomic_add((addr_t) &async_tran.len, 1); //TODO: ldxr cause translation fault
-    if(!(*AUX_MU_IER_REG & 0b10)) *AUX_MU_IER_REG |= 0b10; // enable interrupt has new data to send
+    if(!(*AUX_MU_IER_REG & 0b10)) *AUX_MU_IER_REG |= 0b10; // new data to send, enable interrupt
 }
 
 //default async sending
@@ -127,10 +145,15 @@ void send_line(char *line){
     _send_line_(line, async_send_data);
 }
 
-void send_void_line(void *vstr){
-    char *line = (char *)vstr;
-    send_line(line);
+size_t send_from_buf(char *buffer, size_t size){
+    size_t total_send = 0;
+    while(total_send < size){
+        async_send_data(buffer[total_send++]);
+        if(async_tran.len == ASYNC_BUFFER_SIZE) break;
+    }
+    return total_send;
 }
+
 
 void _send_line_(char *line, void (*send_func)(char)){
     _send_string_(line, send_func);
@@ -139,7 +162,7 @@ void _send_line_(char *line, void (*send_func)(char)){
 }
 
 // ----- exception handler * async send/recv -----
-void uart_except_handler(){
+void uart_except_handler(uint64_t *trap_frame){
     // disable_aux_interrupt(); already disable by exception handler
     uint32_t interrupt_id = (*(AUX_MU_IIR_REG) >> 1) & 0b11;
     if(interrupt_id == 2){
@@ -167,6 +190,11 @@ void uart_except_handler(){
             async_tran.len--;
         }
     }
-    else send_line("[unknown mini_uart interrupt!]");
+    else{
+        char temp[16];
+        _send_string_("[unknown mini_uart interrupt!]: ", sync_send_data);
+        _send_line_(itoa(interrupt_id, temp, DEC), sync_send_data);
+    }
+
     enable_aux_interrupt();
 }

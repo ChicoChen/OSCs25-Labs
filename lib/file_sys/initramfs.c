@@ -1,6 +1,7 @@
 #include "file_sys/initramfs.h"
 #include "devicetree/dtb.h"
 #include "exception/exception.h"
+#include "thread/thread.h"
 #include "memory_region.h"
 #include "base_address.h"
 #include "utils.h"
@@ -127,18 +128,38 @@ addr_t find_address(char *filename, unsigned int *filesize_ptr){
     return (addr_t)mem;
 }
 
-int exec_usr_prog(void* args){
-    char *prog_name = "sys_call.img";
+RCregion *load_program(char *prog_name){
+    if(!prog_name) prog_name = "sys_call.img";
     size_t filesize = 0;
     addr_t source = find_address(prog_name, &filesize);
-    if(!source) return 1;
+    if(!source) {
+        send_line("[ERROR][filesys]: can't find target program!");
+        return NULL;
+    }
     
-    addr_t dest = USER_PROG_START;
-    for(size_t size = 0; size < filesize; size += 4){ //file content is padded to 4 bytes
-        *(uint32_t *)(dest + size) = *(uint32_t *)(source + size);
+    RCregion *dest = rc_alloc(filesize);
+    if(!dest){
+        send_line("[ERROR][filesys]: can't allocate space for program!");
+        return NULL;
     }
 
-    _el1_to_el0(USER_PROG_START, USER_STACK_TOP);
+    char temp[32];
+    send_string("[filesys]: loadling program of size ");
+    send_line(itoa(filesize, temp, HEX));
+    memcpy(dest->mem, (void *)source, filesize);
+    return dest;
+}
+
+/// @brief spawn a new thread to run specific program in EL0, used only by kernel's simple_shell
+/// @param name name of program.
+/// @param args needed arguments
+int run_prog(char *prog_name, char **args){
+    // TODO: how to run with arguments?
+    RCregion *dest = load_program(prog_name);
+    if(!dest) return 1;
+
+    create_prog_thread(dest);
+    schedule();
     return 0;
 }
 

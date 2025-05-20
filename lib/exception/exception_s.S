@@ -50,16 +50,6 @@
 .endm
 
 .section ".text"
-.global _el1_to_el0
-.type _el1_to_el0 %function
-_el1_to_el0: // TODO: inline assembly version?
-  msr DAIFSet, 0xf
-  msr elr_el1, x0
-  msr sp_el0, x1
-  mov x0, 0x3c0
-  msr spsr_el1, x0
-  eret
-
 .align 11 // aligned to 0x800
 .global _exception_vector_table
 _exception_vector_table:
@@ -81,9 +71,9 @@ _exception_vector_table:
   b _default_handler
   .align 7
 
-  b _default_handler
+  b _lower_sync_entry
   .align 7
-  b _default_handler
+  b _lower_irq_entry
   .align 7
   b _default_handler
   .align 7
@@ -113,6 +103,36 @@ _default_handler:
 _curr_irq_entry:
   msr DAIFSet, 0xf
   save_all
-  bl curr_irq_handler
+  mov x0, sp
+  bl irq_handler
   load_all
+  eret
+
+_lower_sync_entry:
+  msr DAIFSet, 0xf
+  save_all
+  mov x0, sp
+  bl lower_sync_handler
+  
+.global _fork_entry
+_fork_entry:
+  load_all
+  eret
+
+_lower_irq_entry:
+  msr DAIFSet, 0xf
+  save_all
+  mov x0, sp
+  bl irq_handler
+  load_all
+  eret
+
+.global _el1_to_el0
+.type _el1_to_el0 %function
+_el1_to_el0:
+  msr DAIFSet, 0xf
+  msr elr_el1, x0
+  msr sp_el0, x1
+  mov x0, 0x340
+  msr spsr_el1, x0
   eret

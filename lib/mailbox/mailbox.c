@@ -11,13 +11,6 @@
 #define TAG_REQUEST_CODE    0x00000000
 #define END_TAG             0x00000000
 
-int mailbox_entry(void* args){
-    send_line("Mailbox info:");
-    print_board_revision();
-    print_arm_memory();
-    return 0;
-}
-
 void print_board_revision(){
     unsigned int __attribute__((aligned(16))) mailbox[7];
     mailbox[0] = 7 * 4; // buffer size in bytes
@@ -30,7 +23,7 @@ void print_board_revision(){
     // tags end
     mailbox[6] = END_TAG;
     
-    mailbox_call((unsigned int)mailbox);
+    mailbox_call((char)0x8, (unsigned int)mailbox);
     char board_revision[11];
     send_string(" Board revision: ");
     send_line(itoa(mailbox[5], board_revision, HEX)); // it should be 0xa020d3 for rpi3 b+
@@ -48,7 +41,7 @@ void print_arm_memory(){
     mailbox[6] = 0;
     mailbox[7] = END_TAG;
     
-    mailbox_call((unsigned int)mailbox);
+    mailbox_call((char)0x8, (unsigned int)mailbox);
     char mem_bass_addr[11];
     send_string(" ARM memory base address: ");
     send_line(itoa(mailbox[5], mem_bass_addr, HEX));
@@ -56,8 +49,8 @@ void print_arm_memory(){
     send_line(itoa(mailbox[6], mem_bass_addr, HEX));
 }
 
-int mailbox_call(unsigned int mailbox){
-    unsigned int message = (mailbox & ~(0xf)) | CHANNEL_NUMBER;
+int mailbox_call(char ch, unsigned int mailbox_addr){
+    unsigned int message = (mailbox_addr & ~(0xf)) | CHANNEL_NUMBER;
     unsigned recv = 0x0u;
     while(message != recv){
         while((*MAILBOX_STATUS) & MAILBOX_FULL); //wait until no full

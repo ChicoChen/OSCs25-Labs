@@ -3,6 +3,9 @@
 
 #include "basic_type.h"
 
+#define GET_OFFSET(type, member) ((uint64_t) &((type *)0)->member)
+#define GET_CONTAINER(ptr, type, member) ((type *)((addr_t)ptr - GET_OFFSET(type, member)))
+
 #define COND_SWAP(flag, type, var1, var2)   \
     do{                                     \
         if (flag) {                         \
@@ -16,7 +19,7 @@
 void delay(unsigned int cycle);
 
 // memory and address manipulation
-void *memcpy(void *str1, void *str2, size_t size);
+void *memcpy(void *dest, void *source, size_t size);
 void *align(void *addr, size_t base);
 void addr_set(addr_t addr, uint32_t value);
 

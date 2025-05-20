@@ -2,3 +2,5 @@ build/
 .vscode/
 scripts/debug.lldb.sh
 *.cpio
+rootfs/syscall.img
+log
