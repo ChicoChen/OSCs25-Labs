@@ -37,3 +37,11 @@ In this lab, the term `Thread` and `process` can be used interchangeably.
     In previous design, exception block enqueued insterrupt to preserve usable task in memory pool. But after context-switch, the timer-interrupt remains in the head of `ExceptQueue`, blocking other interrupt from executing.
 
     My solution is separate different thread's exception tasks, encapsulate as `ExceptWorkLoad` which track thread's interrupt mask and enqueued but un-handled exceptions.
+
+6. signal handling:
+
+    After context switch, before returning from timer interrupt handler, the signals are check and handled.
+
+    If user process had registered a handler function, The trapframe of current timer interrupt is modified to branch to execute it. A separated stack is also allocated.
+
+    Upon completing user assigned handler, it will branch back to `exit_signal_handler()` via `lr`, where program resume its original execution path using `sigreturn_s()` system call.
