@@ -1,4 +1,8 @@
 build/
+.cache/
 .vscode/
+
 scripts/debug.lldb.sh
+compile_commands.json
+*.cpio
 log

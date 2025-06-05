@@ -16,7 +16,7 @@ LLDB_FLAG = -s -S
 
 # ---------- QEMU flag ----------
 MINI_UART_FLAG = -serial null -serial stdio
-INITRAMFS_FLAG = -initrd initramfs.cpio
+INITRAMFS_FLAG = -initrd m_initramfs.cpio
 DTB_FLAG = -dtb bcm2710-rpi-3-b-plus.dtb
 DISPLAY_FLAG = -display gtk
 REMOTE_FLAG = -display vnc=:1
