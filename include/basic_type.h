@@ -4,6 +4,11 @@
 #define NULL 0
 
 typedef enum { false = 0, true = 1 } bool;
+typedef enum {
+    content_file,
+    directory
+} Filetype;
+
 #define BOOL(x) ((x) ? 1 : 0)
 
 typedef char byte;
