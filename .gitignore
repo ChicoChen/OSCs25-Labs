@@ -1,6 +1,8 @@
 build/
+.cache/
 .vscode/
 scripts/debug.lldb.sh
 *.cpio
 rootfs/syscall.img
 log
+compile_commands.json
