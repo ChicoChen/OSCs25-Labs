@@ -1,5 +1,6 @@
 #include "file_sys/vfs.h"
 #include "file_sys/tmpfs.h"
+#include "file_sys/fs_macros.h"
 #include "allocator/dynamic_allocator.h"
 
 #define FILESYSTEM_MAX_NUM 10
@@ -23,8 +24,8 @@ int init_vnode(Vnode *target, void *internal,
 {
 	target->mount = NULL;
 	target->internal = internal;
-	target->v_ops = vops;
-	target->v_ops = fops;
+	target->vops = vops;
+	target->vops = fops;
 }
 
 int register_filesystem(FileSystem* fs) {
@@ -38,15 +39,32 @@ int register_filesystem(FileSystem* fs) {
 // ----- public vnode operations -----
 int vfs_mkdir(const char* pathname);
 int vfs_mount(const char* target, const char* filesystem);
-int vfs_lookup(const char* pathname,  Vnode** target);
+
+
+int vfs_lookup(const char* pathname,  Vnode** target){
+
+}
 
 // ----- public file operations -----
 int vfs_open(const char* pathname, int flags, FileHandler** target) {
-	// 1. Lookup pathname
-	// 2. Create a new file handle for this vnode if found.
-	// 3. Create a new file if O_CREAT is specified in flags and vnode not found
-	// lookup error code shows if file exist or not or other error occurs
-	// 4. Return error code if fails
+	// Lookup pathname
+	Vnode *vnode = NULL;
+	int error = vfs_lookup(pathname, &vnode);
+	if(error == FILE_NOT_FOUND) {
+		if(flags & O_CREAT == 0) return error;
+		
+		// create a new file since O_CREAT is specified
+		// vnode = ...
+	}
+	else if(error < 0) return error; // other errors
+
+	// Create a new file handle for this vnode if found.
+	// if(!vnode->fops) ...
+	error = vnode->fops->open(vnode, target);
+	if(error < 0) return error;
+	
+	(*target)->flags = flags;
+	return 0;
 }
 
 int vfs_close(FileHandler* file) {
