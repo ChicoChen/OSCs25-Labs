@@ -19,10 +19,10 @@ int init_vfs(){
 	tmpfs.setup_mount(&tmpfs, &rootfs);
 }
 
-int init_vnode(Vnode *target, void *internal,
+int init_vnode(Vnode *target, Mount *mount, void *internal,
 	VnodeOperations *vops, FileOperations *fops)
 {
-	target->mount = NULL;
+	target->mount = mount;
 	target->internal = internal;
 	target->vops = vops;
 	target->vops = fops;
@@ -34,7 +34,6 @@ int register_filesystem(FileSystem* fs) {
 	if(num_registerd_fs >= FILESYSTEM_MAX_NUM) return -1;
 	registered_fs[num_registerd_fs++] = fs;
 }
-
 
 // ----- public vnode operations -----
 int vfs_mkdir(const char* pathname);
@@ -62,7 +61,7 @@ int vfs_open(const char* pathname, int flags, FileHandler** target) {
 	// if(!vnode->fops) ...
 	error = vnode->fops->open(vnode, target);
 	if(error < 0) return error;
-	
+
 	(*target)->flags = flags;
 	return 0;
 }

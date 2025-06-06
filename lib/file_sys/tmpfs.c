@@ -1,21 +1,24 @@
 #include "file_sys/tmpfs.h"
 #include "file_sys/fs_macros.h"
+#include "allocator/page_allocator.h"
 #include "allocator/dynamic_allocator.h"
 #include "utils.h"
+#include "str_utils.h"
 
 VnodeOperations tmpfs_vops;
 FileOperations tmpfs_fops;
 
 // ----- forward declarations -----
-void init_tmpfs_ops();
-
+void init_tmpfs_node(TmpfsInternal *node, Vnode *parent, TmpfsType type);
+void assign_tmpfs_ops();
+int tmpfs_make_childnode(Vnode* parent, Vnode** target, const char* component_name, TmpfsType type);
 
 // ----- public functions -----
 void init_tmpfs(){
     tmpfs.name = (char *)dyna_alloc(6);
     memcpy(tmpfs.name, "tmpfs", 6);
     tmpfs.setup_mount = mount_tmpfs;
-    init_ops();
+    assign_tmpfs_ops();
 }
 
 /// @brief setup_mount() of tmpfs
@@ -26,19 +29,47 @@ int mount_tmpfs(FileSystem* fs, Mount* mount){
     
     // create internal node for root
     TmpfsInternal *tmpfs_node = (TmpfsInternal*) dyna_alloc(TMPFSINTERNAL_SIZE);
-    init_tmpfs_node(tmpfs_node);
-    init_vnode(mount->root, (void *)tmpfs_node, &tmpfs_vops, &tmpfs_fops);
+    init_tmpfs_node(tmpfs_node, NULL, directory); // <- TODO
+    init_vnode(mount->root, mount, (void *)tmpfs_node, &tmpfs_vops, &tmpfs_fops);
 }
 
-int tmpfs_write(FileHandler* file, const void* buf, size_t len){
+// ----- vnode operations -----
+int tmpfs_lookup_i(Vnode* dir_node, Vnode** target, const char* component_name){
+	*target = NULL;
+    TmpfsInternal *internal = (TmpfsInternal *)dir_node->internal;
+	for(size_t i = 0; i < internal->num_children; i++){
+        if(strcmp(component_name, ".")){
+            *target = dir_node;
+            return 0;
+        }
+        if(strcmp(component_name, "..")){
+            *target = internal->parent;
+        }
+        else if(!strcmp(internal->children_name[i], component_name)) continue;
+        *target = internal->children[i];
+    }
+
+	return (*target)? 0: FILE_NOT_FOUND;
+}
+
+int tmpfs_create_i(Vnode* dir_node, Vnode** target, const char* component_name){
+    return tmpfs_make_childnode(dir_node, target, component_name, content_file);
+}
+
+int tmpfs_mkdir_i(Vnode* dir_node, Vnode** target, const char* component_name){
+    return tmpfs_make_childnode(dir_node, target, component_name, directory);
+}
+
+// ----- file operations -----
+int tmpfs_write_i(FileHandler* file, const void* buf, size_t len){
 
 }
 
-int tmpfs_read(FileHandler* file, void* buf, size_t len){
+int tmpfs_read_i(FileHandler* file, void* buf, size_t len){
 
 }
 
-int tmpfs_open(Vnode* file_node, FileHandler** target){
+int tmpfs_open_i(Vnode* file_node, FileHandler** target){
     FileHandler *new_fd = (FileHandler *)dyna_alloc(FILEHANDLER_SIZE);
     if(!new_fd) return ALLOCATION_FAILED;
 
@@ -49,7 +80,7 @@ int tmpfs_open(Vnode* file_node, FileHandler** target){
     return 0;
 }
 
-int tmpfs_close(FileHandler* file){
+int tmpfs_close_i(FileHandler* file){
 
 }
 
@@ -58,14 +89,49 @@ long tmpfs_lseek64(FileHandler* file, long offset, int whence){
 }
 
 
-void init_tmpfs_ops(){
+// ----- local methods -----
+void init_tmpfs_node(TmpfsInternal *node, Vnode *parent, TmpfsType type){
+    node->type = type;
+    node->parent = parent;
+    node->num_children = 0;
+    node->children_name = (char **)dyna_alloc(8 * MAX_FILE_ENTRY_SIZE);
+    for(size_t i = 0; i < MAX_FILE_ENTRY_SIZE; i++) node->children[i] = NULL;
+
+    node->file_size = 0;
+    if(type == directory) node->content = NULL;
+    else node->content = page_alloc(FILE_CONTENT_LENGTH);
+}
+
+void assign_tmpfs_ops(){
     // vops
     
 
     // fops
-    tmpfs_fops.open = (void *)tmpfs_open;
-    tmpfs_fops.read = (void *)tmpfs_read;
-    tmpfs_fops.write = (void *)tmpfs_write;
-    tmpfs_fops.close = (void *)tmpfs_close;
+    tmpfs_fops.open = (void *)tmpfs_open_i;
+    tmpfs_fops.read = (void *)tmpfs_read_i;
+    tmpfs_fops.write = (void *)tmpfs_write_i;
+    tmpfs_fops.close = (void *)tmpfs_close_i;
     tmpfs_fops.lseek64 = (void *)tmpfs_lseek64;
+}
+
+int tmpfs_make_childnode(Vnode* parent, Vnode** target, const char* component_name, TmpfsType type){
+    *target = NULL;
+    TmpfsInternal *par_internal = parent->internal;
+    if(par_internal->num_children == MAX_FILE_ENTRY_SIZE) return OPERATION_NOT_ALLOW;
+    size_t idx = par_internal->num_children;
+
+    // pathname
+    par_internal->children_name[idx] = (char *)dyna_alloc(FILE_NAME_LENGTH);
+    if(!par_internal->children_name[idx]) return ALLOCATION_FAILED;
+    memcpy(par_internal->children_name[idx], component_name, get_size(component_name));
+
+    // child node
+    TmpfsInternal *child_internal = (TmpfsInternal *)dyna_alloc(TMPFSINTERNAL_SIZE);
+    init_tmpfs_node(child_internal, parent, type);
+    par_internal->children[idx] = (Vnode *)dyna_alloc(VNODE_SIZE);
+    if(!par_internal->children[idx]) return ALLOCATION_FAILED;
+    init_vnode(par_internal->children[idx], parent->mount, child_internal, &tmpfs_vops, &tmpfs_fops);
+
+    par_internal->num_children++;
+    return 0;
 }
