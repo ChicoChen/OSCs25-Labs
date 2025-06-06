@@ -3,52 +3,59 @@
 
 #include "basic_type.h"
 
-#define VNODE_SIZE 32
-typedef struct {
-	Mount* mount;
-	VnodeOperations* v_ops;
-	FileOperations* f_ops;
-	void* internal;
-} Vnode;
+typedef struct Vnode 				Vnode;
+typedef struct Mount 				Mount;
+typedef struct FileSystem 			FileSystem;
+typedef struct FileHandler 			FileHandler;
+typedef struct VnodeOperations 		VnodeOperations;
+typedef struct FileOperations 		FileOperations;
 
-#define FILEHANDLE_SIZE 24
-typedef struct {
+#define VNODE_SIZE 32
+struct Vnode{
+	Mount* mount;
+	VnodeOperations* vops;
+	FileOperations* fops;
+	void* internal;
+};
+
+#define FILEHANDLER_SIZE 24
+struct FileHandler{
 	Vnode* vnode;
 	size_t f_pos;  // RW position of this file handle
-	FileOperations* f_ops;
+	FileOperations* ops;
 	int flags;
-} FileHandler;
+};
 
 #define MOUNT_SIZE 16
-typedef struct {
+struct Mount {
 	Vnode* root;
 	FileSystem* fs;
-} Mount;
+};
 
 #define FILESYSTEM_SIZE 16
-typedef struct {
+struct FileSystem{
 	const char* name;
 	int (*setup_mount)(FileSystem* fs, Mount* mount);
-} FileSystem;
+};
 
 #define VNODEOPERATION_SIZE 24
-typedef struct {
+struct VnodeOperations{
 	int (*lookup)(Vnode* dir_node, Vnode** target,
 		const char* component_name);
 	int (*create)(Vnode* dir_node, Vnode** target,
 		const char* component_name);
 	int (*mkdir)(Vnode* dir_node, Vnode** target,
 		const char* component_name);
-} VnodeOperations;
+};
 
 #define FILE_OPERATIONS_SIZE 40
-typedef struct {
+struct FileOperations {
 	int (*write)(FileHandler* file, const void* buf, size_t len);
 	int (*read)(FileHandler* file, void* buf, size_t len);
 	int (*open)(Vnode* file_node, FileHandler** target);
 	int (*close)(FileHandler* file);
 	long (*lseek64)(FileHandler* file, long offset, int whence);
-} FileOperations;
+};
 
 
 int init_vfs();
