@@ -6,18 +6,13 @@
 #define O_RDWR      0b000010
 #define O_CREAT     0b000100
 
+#define FILE_READABLE(flag) BOOL((flag & O_RDWR) || !(flag & O_WRONLY))
+#define FILE_WRITEABLE(flag) BOOL((flag & O_RDWR) || (flag & O_WRONLY))
+
 #define UNKNOWN_ERROR           -1
 #define FILE_NOT_FOUND          -2
 #define ALLOCATION_FAILED       -3
 #define OPERATION_NOT_ALLOW     -4
 #define OPERATION_NOT_ALLOW     -4
-
-bool readable(int flag){
-    return BOOL((flag & O_RDWR) || !(flag & O_WRONLY) ); 
-}
-
-bool writeable(int flag){
-    return BOOL((flag & O_RDWR) || (flag & O_WRONLY)); 
-}
 
 #endif 

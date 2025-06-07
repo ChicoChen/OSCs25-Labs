@@ -51,9 +51,8 @@ int vfs_mkdir(const char* pathname){
 	if(path[0] == '/'){
 		parent = rootfs.root;
 	}
-	else{
-		parent = curr_thread->cwd;
-	}
+	else return OPERATION_NOT_ALLOW;
+	// todo: else parent = curr_thread->cwd;
 
 	char *saveptr = NULL;
 	char *next_tok = strtok_r(path, "/", &saveptr);
@@ -89,7 +88,7 @@ int vfs_mount(const char* target, const char* filesystem){
 	int lookup = vfs_lookup(target, &mounted_point);
 	if(lookup) return lookup;
 
-	if(mounted_point->mount != NULL){ // already be mounted or mounting on others
+	if(mounted_point->mount != NULL){ // already mounted
 		return OPERATION_NOT_ALLOW;
 		//TODO: or unmount original fs and mount a new one
 	}
@@ -105,7 +104,8 @@ int vfs_lookup(const char* pathname,  Vnode** target){
 	memcpy((void *)path, (void *)pathname, get_size(pathname));
 	
 	if(path[0] == '/') *target = rootfs.root;
-	else *target = curr_thread->cwd;
+	else return OPERATION_NOT_ALLOW;
+	// todo: else *target = curr_thread->cwd;
 
 	char *saveptr = NULL;
 	char *next_tok = strtok_r(path, "/", &saveptr);
@@ -138,7 +138,8 @@ int vfs_open(const char* pathname, int flags, FileHandler** target) {
 	
 	// find starting point
 	if(path[0] == '/') parent = rootfs.root;
-	else parent = curr_thread->cwd;
+	else return OPERATION_NOT_ALLOW;
+	// todo: else parent = curr_thread->cwd;
 
 	char *savepath;
 	char *curr_tok = strtok_r(path, "/", &savepath);
@@ -163,31 +164,27 @@ int vfs_open(const char* pathname, int flags, FileHandler** target) {
 	error = parent->vops->lookup(parent, &child, curr_tok);
 	if(error == FILE_NOT_FOUND && (flags & O_CREAT)){ // create new file;
 		error = parent->vops->create(parent, &child, curr_tok);
-		if(error >= 0) error = child->fops->open(child, target);
-	}
-	else if (error >= 0){ // found existing file
-		child->fops->open(child, target);
-		error = 0;
 	}
 
 	dyna_free(path);
+	if(error < 0) return error;
+
+	error = child->fops->open(child, target);
+	(*target)->flags = flags;
 	return error;
 }
 
-int vfs_close(FileHandler* file) {
-	// 1. release the file handle
-	// 2. Return error code if fails
+int vfs_read(FileHandler* file, void* buf, size_t len) {
+	// ! block if nothing to read for FIFO type
+	return file->vnode->fops->read(file, buf, len);
 }
 
 int vfs_write(FileHandler* file, const void* buf, size_t len) {
-	// 1. write len byte from buf to the opened file.
-	// 2. return written size or error code if an error occurs.
+	return file->vnode->fops->write(file, buf, len);
 }
 
-int vfs_read(FileHandler* file, void* buf, size_t len) {
-	// 1. read min(len, readable size) byte to buf from the opened file.
-	// 2. block if nothing to read for FIFO type
-	// 2. return read size or error code if an error occurs.
+int vfs_close(FileHandler* file) {
+	return file->vnode->fops->close(file);
 }
 
 // ----- local methods -----

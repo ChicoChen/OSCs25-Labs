@@ -81,7 +81,7 @@ int tmpfs_open_i(Vnode* file_node, FileHandler** target){
 int tmpfs_read_i(FileHandler* file, void* buf, size_t len){
     TmpfsInternal *internal = file->vnode->internal;
     if(internal->type == directory) return OPERATION_NOT_ALLOW;
-    else if(!readable(file->flags)) return OPERATION_NOT_ALLOW;
+    else if(!FILE_READABLE(file->flags)) return OPERATION_NOT_ALLOW;
     else if(file->f_pos >= internal->file_size) return 0; // EOF
     
 
@@ -96,8 +96,8 @@ int tmpfs_read_i(FileHandler* file, void* buf, size_t len){
 int tmpfs_write_i(FileHandler* file, const void* buf, size_t len){
     TmpfsInternal *internal = file->vnode->internal;
     if(internal->type == directory) return OPERATION_NOT_ALLOW;
-    else if(!readable(file->flags)) return OPERATION_NOT_ALLOW;
-    else if(file->f_pos >= FILE_CONTENT_LENGTH) return 0;
+    else if(!FILE_WRITEABLE(file->flags)) return OPERATION_NOT_ALLOW;
+    else if(file->f_pos >= FILE_CONTENT_LENGTH) return 0; // exceed EOF
 
     // size_t original_length = internal->file_size;
     uint64_t start = (uint64_t)internal->content + file->f_pos;
@@ -113,6 +113,7 @@ int tmpfs_write_i(FileHandler* file, const void* buf, size_t len){
 
 int tmpfs_close_i(FileHandler* file){
     dyna_free(file);
+    return 0;
 }
 
 long tmpfs_lseek64(FileHandler* file, long offset, int whence){
