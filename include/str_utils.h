@@ -13,7 +13,7 @@ typedef enum{
 char *make_str(char *str, char c, size_t len);
 
 //--- Getters ---
-size_t get_size(char *str);
+size_t get_size(const char *str);
 
 //--- Conversion ---
 char* itoa(unsigned int val, char *str, radix rad);
@@ -28,8 +28,9 @@ bool is_digit(char c);
 bool is_hex_digit(char c);
 
 //--- String Operation ---
-int strcmp(char* str1, char* str2);
+int strcmp(const char* str1, const char* str2);
 char* strrev(char* str);
 char* strtok(char* str, char* terminators);
-char *strchr(char *str, int c);
+char *strtok_r(char *str, const char *terminators, char **saveptr);
+char *strchr(const char *str, int c);
 #endif
