@@ -2,6 +2,8 @@
 #include "file_sys/tmpfs.h"
 #include "file_sys/fs_macros.h"
 #include "allocator/dynamic_allocator.h"
+#include "utils.h"
+#include "str_utils.h"
 
 #define FILESYSTEM_MAX_NUM 10
 
@@ -12,11 +14,14 @@ Vnode *vnode_iter;
 FileSystem *registered_fs[FILESYSTEM_MAX_NUM];
 size_t num_registerd_fs = 0;
 
+FileSystem* fs_registered(const char* fs_name);
+
 // ----- public interfaces -----
 int init_vfs(){
 	init_tmpfs();
 	register_filesystem(&tmpfs);
 	tmpfs.setup_mount(&tmpfs, &rootfs);
+	return 0;
 }
 
 int init_vnode(Vnode *target, Mount *mount, void *internal,
@@ -25,45 +30,148 @@ int init_vnode(Vnode *target, Mount *mount, void *internal,
 	target->mount = mount;
 	target->internal = internal;
 	target->vops = vops;
-	target->vops = fops;
+	target->fops = fops;
+	return 0;
 }
 
 int register_filesystem(FileSystem* fs) {
 	// register the file system to the kernel.
 	// you can also initialize memory pool of the file system here.
-	if(num_registerd_fs >= FILESYSTEM_MAX_NUM) return -1;
+	if(num_registerd_fs >= FILESYSTEM_MAX_NUM) return OPERATION_NOT_ALLOW;
 	registered_fs[num_registerd_fs++] = fs;
+	return 0;
 }
 
 // ----- public vnode operations -----
-int vfs_mkdir(const char* pathname);
-int vfs_mount(const char* target, const char* filesystem);
+int vfs_mkdir(const char* pathname){
+	char *path = (char *)dyna_alloc(PATHANME_MAX_LENGTH);
+	memcpy((void *)path, (void *)pathname, get_size(pathname));
+	
+	Vnode *parent;
+	if(path[0] == '/'){
+		parent = rootfs.root;
+	}
+	else{
+		parent = curr_thread->cwd;
+	}
 
+	char *saveptr = NULL;
+	char *next_tok = strtok_r(path, "/", &saveptr);
+	if(!next_tok){
+		dyna_free((void *)path);
+		return OPERATION_NOT_ALLOW; // trying to create current dir?
+	}
+	
+	Vnode *target;
+	do{
+		int lookup = parent->vops->lookup(parent, &target, next_tok); 
+		if(lookup == FILE_NOT_FOUND){
+			parent->vops->mkdir(parent, &target, next_tok);
+		}
+		else if(lookup != 0) {
+			dyna_free((void *)path);
+			return lookup;
+		}
+
+		parent = target;
+	}while(next_tok = strtok_r(NULL, "/", &saveptr));
+	
+	dyna_free((void *)path);
+	return 0;
+}
+
+int vfs_mount(const char* target, const char* filesystem){
+	FileSystem *registered_fs = fs_registered(filesystem);
+	if(!registered_fs){
+		return OPERATION_NOT_ALLOW;
+	}
+	Vnode *mounted_point = NULL;
+	int lookup = vfs_lookup(target, &mounted_point);
+	if(lookup) return lookup;
+
+	if(mounted_point->mount != NULL){ // already be mounted or mounting on others
+		return OPERATION_NOT_ALLOW;
+		//TODO: or unmount original fs and mount a new one
+	}
+
+	mounted_point->mount = dyna_alloc(MOUNT_SIZE);
+	if(!mounted_point->mount) return ALLOCATION_FAILED;
+	mounted_point->mount->parent = mounted_point;
+	return registered_fs->setup_mount(registered_fs, mounted_point->mount);
+}
 
 int vfs_lookup(const char* pathname,  Vnode** target){
+	char *path = (char *)dyna_alloc(PATHANME_MAX_LENGTH);
+	memcpy((void *)path, (void *)pathname, get_size(pathname));
+	
+	if(path[0] == '/') *target = rootfs.root;
+	else *target = curr_thread->cwd;
 
+	char *saveptr = NULL;
+	char *next_tok = strtok_r(path, "/", &saveptr);
+	if(!next_tok) {
+		dyna_free((void *)path);
+		return 0;
+	}
+	
+	Vnode *iter;
+	do{
+		int lookup = (*target)->vops->lookup(*target, &iter, next_tok);
+		if(lookup != 0){
+			dyna_free((void *)path);
+			return lookup;
+		}
+		else *target = iter;
+	}
+	while(next_tok = strtok_r(NULL, "/", &saveptr));
+	
+	dyna_free((void *)path);
+	return 0;
 }
 
 // ----- public file operations -----
 int vfs_open(const char* pathname, int flags, FileHandler** target) {
-	// Lookup pathname
-	Vnode *vnode = NULL;
-	int error = vfs_lookup(pathname, &vnode);
-	if(error == FILE_NOT_FOUND) {
-		if(flags & O_CREAT == 0) return error;
-		
-		// create a new file since O_CREAT is specified
-		// vnode = ...
+	// copy pathname
+	Vnode *parent;
+	char *path = (char *)dyna_alloc(PATHANME_MAX_LENGTH);
+	memcpy((void *)path, (void *)pathname, get_size(pathname));
+	
+	// find starting point
+	if(path[0] == '/') parent = rootfs.root;
+	else parent = curr_thread->cwd;
+
+	char *savepath;
+	char *curr_tok = strtok_r(path, "/", &savepath);
+	if(!curr_tok) return parent->fops->open(parent, target);
+
+	// iterate file tree
+	char *next_tok;
+	Vnode *child = NULL;
+	int error;
+	while(next_tok = strtok_r(NULL, "/", &savepath)){
+		error = parent->vops->lookup(parent, &child, curr_tok);
+		if(error < 0){
+			dyna_free(path);
+			return error;
+		}
+
+		parent = child;
+		curr_tok = next_tok;
 	}
-	else if(error < 0) return error; // other errors
 
-	// Create a new file handle for this vnode if found.
-	// if(!vnode->fops) ...
-	error = vnode->fops->open(vnode, target);
-	if(error < 0) return error;
+	// handle last token
+	error = parent->vops->lookup(parent, &child, curr_tok);
+	if(error == FILE_NOT_FOUND && (flags & O_CREAT)){ // create new file;
+		error = parent->vops->create(parent, &child, curr_tok);
+		if(error >= 0) error = child->fops->open(child, target);
+	}
+	else if (error >= 0){ // found existing file
+		child->fops->open(child, target);
+		error = 0;
+	}
 
-	(*target)->flags = flags;
-	return 0;
+	dyna_free(path);
+	return error;
 }
 
 int vfs_close(FileHandler* file) {
@@ -80,4 +188,13 @@ int vfs_read(FileHandler* file, void* buf, size_t len) {
 	// 1. read min(len, readable size) byte to buf from the opened file.
 	// 2. block if nothing to read for FIFO type
 	// 2. return read size or error code if an error occurs.
+}
+
+// ----- local methods -----
+FileSystem* fs_registered(const char* fs_name){
+	for(size_t i = 0; i < num_registerd_fs; i++){
+		if(!strcmp(registered_fs[i]->name, fs_name)) continue;
+		return registered_fs[i];
+	}
+	return NULL;
 }

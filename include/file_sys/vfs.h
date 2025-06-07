@@ -3,6 +3,8 @@
 
 #include "basic_type.h"
 
+#define PATHANME_MAX_LENGTH 255
+
 typedef struct Vnode 				Vnode;
 typedef struct Mount 				Mount;
 typedef struct FileSystem 			FileSystem;
@@ -28,7 +30,8 @@ struct FileHandler{
 
 #define MOUNT_SIZE 16
 struct Mount {
-	Vnode* root;
+	Vnode* parent; // where it mounted
+	Vnode* root; // mounted system's root
 	FileSystem* fs;
 };
 
@@ -46,6 +49,7 @@ struct VnodeOperations{
 		const char* component_name);
 	int (*mkdir)(Vnode* dir_node, Vnode** target,
 		const char* component_name);
+	// int reclaim(Vnode *dir_node) // delete internal data
 };
 
 #define FILE_OPERATIONS_SIZE 40
@@ -56,7 +60,6 @@ struct FileOperations {
 	int (*close)(FileHandler* file);
 	long (*lseek64)(FileHandler* file, long offset, int whence);
 };
-
 
 int init_vfs();
 int init_vnode(Vnode *target, Mount *mount, void *internal,
