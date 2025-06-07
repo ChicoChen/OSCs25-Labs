@@ -48,6 +48,11 @@ void init_syscalls(){
 void invoke_syscall(uint64_t *trap_frame){
     ENABLE_DAIF;
     uint64_t syscall = trap_frame[SYSCALL_IDX];
+    if(!handlers[syscall]) {
+        _send_line_("unknown syscall", sync_send_data);
+        print_el_message(trap_frame[SPSR_IDX], trap_frame[ELR_IDX], trap_frame[ESR_IDX]);
+    }
+    
     handlers[syscall](trap_frame);    
     DISABLE_DAIF;
 }
