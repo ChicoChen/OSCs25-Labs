@@ -10,7 +10,7 @@ char *make_str(char *str, char c, size_t len){
 }
 
 // --- Getters ---
-size_t get_size(char *str){
+size_t get_size(const char *str){
     unsigned int size = 0;
     while(str[size] != '\0') size++;
     return size + 1;
@@ -141,7 +141,7 @@ bool is_hex_digit(char c){
 }
 
 //--- String Operation ---
-int strcmp(char* str1, char* str2){
+int strcmp(const char* str1, const char* str2){
     int idx = 0;
     while(str1[idx] != '\0' && str2[idx] != '\0'){
         if(str1[idx] != str2[idx]){
@@ -167,12 +167,16 @@ char* strrev(char* str){
     return str;
 }
 
+/// @brief split str if encounter any of given tokens or '\0',
+/// replaced every tokens with '\0',
+/// skip prefix terminators
 char* strtok(char* str, char* terminators){
     static char *target = NULL;
     if(str) target = str;
     else if(!target || *target == '\0') return NULL;
     
     while(strchr(terminators, *target)) target++;
+    if(*target == '\0') return NULL;
     
     char *tok_start = target;
     while(*target != '\0' && !strchr(terminators, *target)) target++;
@@ -185,7 +189,25 @@ char* strtok(char* str, char* terminators){
     return tok_start;
 }
 
-char *strchr(char *str, int c){
+char *strtok_r(char *str, const char *terminators, char **saveptr){
+    if(str) *saveptr = str;
+    else if(!(*saveptr) || **saveptr == '\0') return NULL;
+    
+    while(strchr(terminators, **saveptr)) (*saveptr)++;
+    if(**saveptr == '\0') return NULL;
+
+    char *tok_start = *saveptr;
+    while(**saveptr != '\0' && !strchr(terminators, **saveptr)) (*saveptr)++;
+
+    char *next_tok = *saveptr;
+    if(*next_tok != '\0') next_tok++;
+    **saveptr = '\0';
+    *saveptr = next_tok;
+
+    return tok_start;
+}
+
+char *strchr(const char *str, int c){
     while(*str != '\0'){
         if(*str == c) return str;
         str++;
