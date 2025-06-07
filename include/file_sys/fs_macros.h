@@ -10,5 +10,14 @@
 #define FILE_NOT_FOUND          -2
 #define ALLOCATION_FAILED       -3
 #define OPERATION_NOT_ALLOW     -4
+#define OPERATION_NOT_ALLOW     -4
+
+bool readable(int flag){
+    return BOOL((flag & O_RDWR) || !(flag & O_WRONLY) ); 
+}
+
+bool writeable(int flag){
+    return BOOL((flag & O_RDWR) || (flag & O_WRONLY)); 
+}
 
 #endif 

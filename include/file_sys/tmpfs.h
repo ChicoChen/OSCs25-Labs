@@ -25,7 +25,7 @@ typedef struct {
     void *content; // only used if type == content_file
 } TmpfsInternal;
 
-FileSystem tmpfs;
+extern FileSystem tmpfs;
 
 void init_tmpfs();
 int mount_tmpfs(FileSystem* fs, Mount* mount);

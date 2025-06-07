@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "str_utils.h"
 
+FileSystem tmpfs;
 VnodeOperations tmpfs_vops;
 FileOperations tmpfs_fops;
 
@@ -66,14 +67,6 @@ int tmpfs_mkdir_i(Vnode* dir_node, Vnode** target, const char* component_name){
 }
 
 // ----- file operations -----
-int tmpfs_write_i(FileHandler* file, const void* buf, size_t len){
-
-}
-
-int tmpfs_read_i(FileHandler* file, void* buf, size_t len){
-
-}
-
 int tmpfs_open_i(Vnode* file_node, FileHandler** target){
     FileHandler *new_fd = (FileHandler *)dyna_alloc(FILEHANDLER_SIZE);
     if(!new_fd) return ALLOCATION_FAILED;
@@ -85,8 +78,41 @@ int tmpfs_open_i(Vnode* file_node, FileHandler** target){
     return 0;
 }
 
-int tmpfs_close_i(FileHandler* file){
+int tmpfs_read_i(FileHandler* file, void* buf, size_t len){
+    TmpfsInternal *internal = file->vnode->internal;
+    if(internal->type == directory) return OPERATION_NOT_ALLOW;
+    else if(!readable(file->flags)) return OPERATION_NOT_ALLOW;
+    else if(file->f_pos >= internal->file_size) return 0; // EOF
+    
 
+    uint64_t start = (uint64_t)internal->content + file->f_pos;
+    size_t remains = internal->file_size - file->f_pos;
+    size_t total_read = (len < remains)? len: remains;
+    memcpy(buf, (void *)start, total_read);
+    file->f_pos += total_read;
+    return total_read;
+}
+
+int tmpfs_write_i(FileHandler* file, const void* buf, size_t len){
+    TmpfsInternal *internal = file->vnode->internal;
+    if(internal->type == directory) return OPERATION_NOT_ALLOW;
+    else if(!readable(file->flags)) return OPERATION_NOT_ALLOW;
+    else if(file->f_pos >= FILE_CONTENT_LENGTH) return 0;
+
+    // size_t original_length = internal->file_size;
+    uint64_t start = (uint64_t)internal->content + file->f_pos;
+    size_t remains = MAX_FILE_ENTRY_SIZE - file->f_pos;
+    size_t total_write = (len < remains)? len: remains;
+    memcpy((void *)start, buf, total_write);
+    
+    file->f_pos += total_write;
+    if(file->f_pos > internal->file_size) internal->file_size = file->f_pos;
+    
+    return total_write;
+}
+
+int tmpfs_close_i(FileHandler* file){
+    dyna_free(file);
 }
 
 long tmpfs_lseek64(FileHandler* file, long offset, int whence){
@@ -115,14 +141,16 @@ int init_tmpfs_node(TmpfsInternal *node, Vnode *parent, TmpfsType type){
 
 void assign_tmpfs_ops(){
     // vops
-    
+    tmpfs_vops.lookup = tmpfs_lookup_i;
+    tmpfs_vops.create = tmpfs_create_i;
+    tmpfs_vops.mkdir = tmpfs_mkdir_i;
 
     // fops
-    tmpfs_fops.open = (void *)tmpfs_open_i;
-    tmpfs_fops.read = (void *)tmpfs_read_i;
-    tmpfs_fops.write = (void *)tmpfs_write_i;
-    tmpfs_fops.close = (void *)tmpfs_close_i;
-    tmpfs_fops.lseek64 = (void *)tmpfs_lseek64;
+    tmpfs_fops.open = tmpfs_open_i;
+    tmpfs_fops.read = tmpfs_read_i;
+    tmpfs_fops.write = tmpfs_write_i;
+    tmpfs_fops.close = tmpfs_close_i;
+    tmpfs_fops.lseek64 = tmpfs_lseek64;
 }
 
 int tmpfs_make_childnode(Vnode* parent, Vnode** target, const char* component_name, TmpfsType type){
