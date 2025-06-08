@@ -1,13 +1,13 @@
 #ifndef FS_ERRORS_H
 #define FS_ERRORS_H
 
-#define O_RDONLY    0b000000
-#define O_WRONLY    0b000001
-#define O_RDWR      0b000010
-#define O_CREAT     0b000100
+#define O_RDWR      00000
+#define O_RDONLY    00001
+#define O_WRONLY    00002
+#define O_CREAT     00100
 
-#define FILE_READABLE(flag) BOOL((flag & O_RDWR) || !(flag & O_WRONLY))
-#define FILE_WRITEABLE(flag) BOOL((flag & O_RDWR) || (flag & O_WRONLY))
+#define FILE_READABLE(flag) ((flag & 0b111) != 2)
+#define FILE_WRITEABLE(flag) ((flag & 0b111) != 1)
 
 #define UNKNOWN_ERROR           -1
 #define FILE_NOT_FOUND          -2

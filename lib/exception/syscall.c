@@ -253,7 +253,10 @@ void open_s(uint64_t *trap_frame){
     Thread *thread = get_curr_thread();
     for(size_t i = 0; i < THREAD_FD_MAX_NUM; i++){
         if(thread->files[i]) continue;
-        SET_RETURN_VALUE(vfs_open(pathname, flags, thread->files + i));
+        int error = vfs_open(pathname, flags, thread->files + i);
+
+        if(error < 0) {SET_RETURN_VALUE(error);}
+        else SET_RETURN_VALUE(i);
         return;
     }
 
@@ -285,7 +288,7 @@ void write_s(uint64_t *trap_frame){
     }
     
     Thread *thread = get_curr_thread();
-    SET_RETURN_VALUE(vfs_write(thread->files[fd],buf, count));
+    SET_RETURN_VALUE(vfs_write(thread->files[fd], buf, count));
 }
 
 
