@@ -4,6 +4,7 @@
 #include "timer/timer.h"
 #include "allocator/startup_allocator.h"
 #include "thread/thread.h"
+#include "file_sys/vfs.h"
 #include "basic_type.h"
 
 #include "str_utils.h"
@@ -13,6 +14,7 @@ void kernel_entry(){
     init_core_timer();
     init_uart();
     init_mem();
+    init_vfs();
     init_thread_sys();
     send_line("--------------------");
     send_line("hello world");

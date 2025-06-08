@@ -5,6 +5,7 @@
 #include "allocator/rc_region.h"
 #include "allocator/page_allocator.h"
 #include "file_sys/initramfs.h"
+#include "file_sys/vfs.h"
 #include "mailbox/mailbox.h"
 #include "memory_region.h"
 #include "mini_uart.h"
@@ -13,7 +14,7 @@
 #include "utils.h"
 #include "timer/timer.h"
 
-#define NUM_SYSCALL 16
+#define NUM_SYSCALL 32
 
 #define SET_RETURN_VALUE(result) trap_frame[0] = (uint64_t)result;
 
@@ -25,17 +26,32 @@ SyscallHandler handlers[NUM_SYSCALL];
 void register_syscall_handlers();
 void register_syscall(size_t idx, SyscallHandler handler);
 
-void getpid_s         (uint64_t *trap_frame);
-void uart_read_s      (uint64_t *trap_frame);
-void uart_write_s     (uint64_t *trap_frame);
-void exec_s           (uint64_t *trap_frame);
-void fork_s           (uint64_t *trap_frame);
-void exit_s           (uint64_t *trap_frame);
-void mbox_call_s      (uint64_t *trap_frame);
-void kill_s           (uint64_t *trap_frame);
-void signal_s         (uint64_t *trap_frame);
-void kill_with_signal_s(uint64_t *trap_frame);
-void sigreturn_s      (uint64_t *trap_frame);
+// todo: resume original return type of each syscall
+// s.t each syscall can be directly called by other kernel modules
+
+// peripherals
+void uart_read_s        (uint64_t *trap_frame);
+void uart_write_s       (uint64_t *trap_frame);
+void mbox_call_s        (uint64_t *trap_frame);
+
+// process/task
+void getpid_s           (uint64_t *trap_frame);
+void exec_s             (uint64_t *trap_frame);
+void fork_s             (uint64_t *trap_frame);
+void exit_s             (uint64_t *trap_frame);
+void kill_s             (uint64_t *trap_frame);
+void signal_s           (uint64_t *trap_frame);
+void kill_with_signal_s (uint64_t *trap_frame);
+void sigreturn_s        (uint64_t *trap_frame);
+
+// file system
+void open_s             (uint64_t *trap_frame);
+void close_s            (uint64_t *trap_frame);
+void write_s            (uint64_t *trap_frame);
+void read_s             (uint64_t *trap_frame);
+void mkdir_s            (uint64_t *trap_frame);
+void mount_s            (uint64_t *trap_frame);
+void chdir_s            (uint64_t *trap_frame);
 
 extern void _fork_entry; // delared in exception_s.S 
 // ----- public interface -----
@@ -49,10 +65,10 @@ void invoke_syscall(uint64_t *trap_frame){
     ENABLE_DAIF;
     uint64_t syscall = trap_frame[SYSCALL_IDX];
     if(!handlers[syscall]) {
-        _send_line_("unknown syscall", sync_send_data);
+        _send_line_("\nunknown syscall", sync_send_data);
         print_el_message(trap_frame[SPSR_IDX], trap_frame[ELR_IDX], trap_frame[ESR_IDX]);
     }
-    
+
     handlers[syscall](trap_frame);    
     DISABLE_DAIF;
 }
@@ -71,6 +87,13 @@ void register_syscall_handlers(){
     register_syscall(8, signal_s);
     register_syscall(9, kill_with_signal_s);
     register_syscall(10, sigreturn_s);
+    register_syscall(11, open_s);
+    register_syscall(12, close_s);
+    register_syscall(13, write_s);
+    register_syscall(14, read_s);
+    register_syscall(15, mkdir_s);
+    register_syscall(16, mount_s);
+    register_syscall(17, chdir_s);
 }
 
 void register_syscall(size_t idx, SyscallHandler handler) {
@@ -116,6 +139,7 @@ void exec_s(uint64_t *trap_frame){
 }
 
 void fork_s(uint64_t *trap_frame){
+    // todo: wrap fork_operation as function
     config_core_timer(false);
     Thread *parent = get_curr_thread();
     Thread *child = make_thread(parent->task, parent->args, parent->prog);
@@ -146,6 +170,17 @@ void fork_s(uint64_t *trap_frame){
     // also copy signal handlers
     for(size_t i = 0; i < NUM_SIGNALS; i++){
         child->signal_handlers[i] = parent->signal_handlers[i];
+    }
+
+    // also copy opened FileHandlers
+    child->cwd = parent->cwd;
+    for(size_t i = 0; i < THREAD_FD_MAX_NUM; i++){
+        if(!parent->files[i]) continue;
+
+        Vnode *node = parent->files[i]->vnode;
+        node->fops->open(node, child->files + i); // a different FileHandler that open same file
+        child->files[i]->flags = parent->files[i]->flags;
+        child->files[i]->f_pos= parent->files[i]->f_pos;
     }
 
     // set after copy, child's return value remains 0
@@ -209,4 +244,84 @@ void sigreturn_s(uint64_t *trap_frame){
     
     page_free((void *)temp_stack);
     ENABLE_DAIF;
+}
+
+void open_s(uint64_t *trap_frame){
+    const char *pathname = (const char *) trap_frame[0];
+    int flags = (int) trap_frame[1];
+
+    Thread *thread = get_curr_thread();
+    for(size_t i = 0; i < THREAD_FD_MAX_NUM; i++){
+        if(thread->files[i]) continue;
+        SET_RETURN_VALUE(vfs_open(pathname, flags, thread->files + i));
+        return;
+    }
+
+    //if not avail fd found 
+    SET_RETURN_VALUE(-1);
+}
+
+
+void close_s(uint64_t *trap_frame){
+    int fd = (int) trap_frame[0];
+    if(fd >= THREAD_FD_MAX_NUM) {
+        SET_RETURN_VALUE(-1);
+        return;
+    }
+
+    Thread *thread = get_curr_thread();
+    SET_RETURN_VALUE(vfs_close(thread->files[fd]));
+    thread->files[fd] = NULL;
+}
+
+void write_s(uint64_t *trap_frame){
+    int fd = (int)trap_frame[0];
+    const void *buf = (const void *) trap_frame[1];
+    unsigned long count = (unsigned long) trap_frame[2];
+    
+    if(fd >= THREAD_FD_MAX_NUM) {
+        SET_RETURN_VALUE(-1);
+        return;
+    }
+    
+    Thread *thread = get_curr_thread();
+    SET_RETURN_VALUE(vfs_write(thread->files[fd],buf, count));
+}
+
+
+void read_s(uint64_t *trap_frame){
+    int fd = (int) trap_frame[0];
+    void *buf = (void *) trap_frame[1];
+    unsigned long count = (unsigned long) trap_frame[2];
+
+    if(fd >= THREAD_FD_MAX_NUM) {
+        SET_RETURN_VALUE(-1);
+        return;
+    }
+    
+    Thread *thread = get_curr_thread();
+    SET_RETURN_VALUE(vfs_read(thread->files[fd],buf, count));
+}
+
+
+void mkdir_s(uint64_t *trap_frame){
+    const char *pathname = (const char *) trap_frame[0];
+    SET_RETURN_VALUE(vfs_mkdir(pathname));
+}
+
+void mount_s(uint64_t *trap_frame){
+    // const char *src = (const char *)trap_frame[0];
+    const char *target = (const char *) trap_frame[1];
+    const char *filesystem = (const char *) trap_frame[2];
+
+    SET_RETURN_VALUE(vfs_mount(target, filesystem));
+}
+
+void chdir_s(uint64_t *trap_frame){
+    const char *path = (const char *) trap_frame[0];
+
+    Thread *thread = get_curr_thread();
+    Vnode *new_dir = NULL;
+    SET_RETURN_VALUE(vfs_lookup(path, &new_dir));
+    thread->cwd = new_dir;
 }

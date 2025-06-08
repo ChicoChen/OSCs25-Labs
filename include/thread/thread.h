@@ -4,9 +4,10 @@
 #include "basic_type.h"
 #include "exception/exception.h"
 #include "allocator/rc_region.h"
+#include "thread/signals.h"
+#include "file_sys/vfs.h"
 #include "template/list.h"
 #include "template/queue.h"
-#include "thread/signals.h"
 
 #define STATE_FP 10
 #define STATE_LR 11
@@ -21,22 +22,29 @@ typedef void (*Task)(void *args);
 #define THREAD_STATE_SIZE (8 * 14)
 #define THREAD_STATE_OFFSET 32
 #define THREAD_SIZE (56 + THREAD_STATE_SIZE + NUM_SIGNALS * 8 + LISTNODE_SIZE)
+#define THREAD_FD_MAX_NUM 16
 
 typedef struct{
+    // meta data
     uint32_t id;
     uint32_t priority;
-
     RCregion *prog;
     Task task;
     void *args;
     uint64_t thread_state[14]; // need 16-byte aligned
+    bool alive;
+
+    // exception handling
     uint64_t *trap_frame;
     ExceptWorkload *excepts;
-    // SignalHandler *signal_handlers[NUM_SIGNALS];
     SignalHandler signal_handlers[NUM_SIGNALS];
     int last_signal;
-    bool alive;
     
+    // file system
+    Vnode *cwd;
+    FileHandler **files;
+
+    // data structure interface
     ListNode node;
 }Thread;
 

@@ -4,6 +4,7 @@
 #include "allocator/page_allocator.h"
 #include "template/queue.h"
 #include "timer/timer.h"
+#include "file_sys/vfs.h"
 #include "memory_region.h"
 #include "basic_type.h"
 #include "utils.h"
@@ -23,7 +24,7 @@ static uint64_t switch_interval = ~0;
 
 // ----- forward decls -----
 
-void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *prog);
+void init_thread(Thread *target_thread, Task assigned, void *args, RCregion *prog);
 void thread_entry(void *, uint64_t *state);
 bool thread_alive(Thread* thread);
 
@@ -52,17 +53,17 @@ void init_thread_sys(){
     switch_interval = freq >> 5;
 
     idle_thread = (Thread *)dyna_alloc(THREAD_SIZE);
-    thread_init(idle_thread, idle, NULL, NULL);
+    init_thread(idle_thread, idle, NULL, NULL);
     
     systemd = (Thread *)dyna_alloc(THREAD_SIZE);
-    thread_init(systemd, NULL, NULL, NULL);
+    init_thread(systemd, NULL, NULL, NULL);
     systemd->excepts = get_curr_workload();
     asm volatile("msr tpidr_el1, %[init_thread]" : :[init_thread]"r"(systemd->thread_state) :);
 }
 
 Thread *make_thread(Task assigned_func, void *args, RCregion* prog){
     Thread *new_thread = (Thread *)dyna_alloc(THREAD_SIZE);
-    thread_init(new_thread, assigned_func, args, prog);
+    init_thread(new_thread, assigned_func, args, prog);
     
     // insert into queue
     node_init(&new_thread->node);
@@ -70,6 +71,7 @@ Thread *make_thread(Task assigned_func, void *args, RCregion* prog){
     if(total_thread == 3){ // as the first thread added
         enable_context_swtich();
     }
+
     return new_thread;
 }
 
@@ -168,7 +170,7 @@ void curr_thread_regis_signal(int signal, SignalHandler handler_func){
 }
 
 // ----- local functions -----
-void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *prog){
+void init_thread(Thread *target_thread, Task assigned, void *args, RCregion *prog){
     target_thread->id = total_thread++;
     target_thread->task = assigned;
     target_thread->priority = 0;
@@ -198,6 +200,13 @@ void thread_init(Thread *target_thread, Task assigned, void *args, RCregion *pro
         default: // STATE_FP and others
             target_thread->thread_state[i] = 0;
         }
+    }
+
+    // file system
+    target_thread->cwd = rootfs.root;
+    target_thread->files = (FileHandler **)dyna_alloc(8 * THREAD_FD_MAX_NUM);
+    for(int i = 0; i < THREAD_FD_MAX_NUM; i++){
+        target_thread->files = NULL;
     }
 }
 
@@ -253,10 +262,12 @@ void kill_zombies(){
         
         free_workload(dead_thread->excepts);
 
-        // for(size_t i = 0; i < NUM_SIGNALS; i++){
-        //     if(!dead_thread->signal_handlers[i]) continue;
-        //     dyna_free(dead_thread->signal_handlers[i]);
-        // }
+        // file systems
+        for(size_t i = 0; i < THREAD_FD_MAX_NUM; i++){
+            if(!dead_thread->files[i]) continue;
+            vfs_close(dead_thread->files[i]); // which calls dyna_free();
+        }
+        dyna_free(dead_thread->files);
         
         dyna_free((void *)dead_thread);
         
