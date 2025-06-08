@@ -41,17 +41,23 @@ int mount_tmpfs(FileSystem* fs, Mount* mount){
 
 // ----- vnode operations -----
 int tmpfs_lookup_i(Vnode* dir_node, Vnode** target, const char* component_name){
-	*target = NULL;
+    *target = NULL;
     TmpfsInternal *internal = (TmpfsInternal *)dir_node->internal;
+    
+    if(strcmp(component_name, ".")){
+        *target = dir_node;
+        return 0;
+    }
+    
+    if(strcmp(component_name, "..")){
+        if(internal->parent) *target = internal->parent;
+        else *target = dir_node;
+        return 0;
+    }
+    
+    if(internal->type != directory) return OPERATION_NOT_ALLOW;
 	for(size_t i = 0; i < internal->num_children; i++){
-        if(strcmp(component_name, ".")){
-            *target = dir_node;
-            return 0;
-        }
-        if(strcmp(component_name, "..")){
-            *target = internal->parent;
-        }
-        else if(!strcmp(internal->children_name[i], component_name)) continue;
+        if(!strcmp(internal->children_name[i], component_name)) continue;
         *target = internal->children[i];
     }
 
@@ -129,7 +135,6 @@ int init_tmpfs_node(TmpfsInternal *node, Vnode *parent, TmpfsType type){
     node->children_name = (char **)dyna_alloc(8 * MAX_FILE_ENTRY_SIZE);
     if(!node->children_name) return ALLOCATION_FAILED;
 
-    
     for(size_t i = 0; i < MAX_FILE_ENTRY_SIZE; i++) node->children[i] = NULL;
     node->file_size = 0;
     if(type == directory) node->content = NULL;
@@ -157,7 +162,8 @@ void assign_tmpfs_ops(){
 int tmpfs_make_childnode(Vnode* parent, Vnode** target, const char* component_name, TmpfsType type){
     *target = NULL;
     TmpfsInternal *par_internal = parent->internal;
-    if(par_internal->num_children == MAX_FILE_ENTRY_SIZE) return OPERATION_NOT_ALLOW;
+    if(par_internal->type == content_file) return OPERATION_NOT_ALLOW;
+    else if(par_internal->num_children == MAX_FILE_ENTRY_SIZE) return  OPERATION_NOT_ALLOW;
     size_t idx = par_internal->num_children;
 
     // pathname

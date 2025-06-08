@@ -10,7 +10,7 @@ KERNEL = kernel8
 INITRAMFS = m_initramfs.cpio
 EXCEPTION = exception
 # ---------- Compile flag ----------
-NO_WARN = -Wno-incompatible-library-redeclaration -Wno-asm-operand-widths -Wno-pointer-to-int-cast -Wno-int-to-void-pointer-cast -Wno-c23-extensions
+NO_WARN = -Wno-incompatible-library-redeclaration -Wno-asm-operand-widths -Wno-pointer-to-int-cast -Wno-int-to-void-pointer-cast -Wno-c23-extensions -Wno-parentheses
 COMPILE_FLAG = -nostdlib -ffreestanding -g $(NO_WARN)
 LLDB_FLAG = -s -S
 

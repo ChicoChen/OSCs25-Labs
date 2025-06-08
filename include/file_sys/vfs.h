@@ -61,6 +61,8 @@ struct FileOperations {
 	long (*lseek64)(FileHandler* file, long offset, int whence);
 };
 
+extern Mount rootfs;
+
 int init_vfs();
 int init_vnode(Vnode *target, Mount *mount, void *internal,
 		VnodeOperations *vops, FileOperations *fops);
@@ -69,7 +71,7 @@ int register_filesystem(FileSystem* fs);
 
 int vfs_mkdir(const char* pathname);
 int vfs_mount(const char* target, const char* filesystem);
-int vfs_lookup(const char* pathname, Vnode** target); // ../ cwd->internal->parent
+int vfs_lookup(const char* pathname, Vnode** target);
 				
 int vfs_open(const char* pathname, int flags, FileHandler** target);
 int vfs_close(FileHandler* file);
