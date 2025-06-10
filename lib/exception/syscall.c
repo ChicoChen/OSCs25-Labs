@@ -249,11 +249,14 @@ void sigreturn_s(uint64_t *trap_frame){
 void open_s(uint64_t *trap_frame){
     const char *pathname = (const char *) trap_frame[0];
     int flags = (int) trap_frame[1];
+    
+    // _send_string_("[vfs] open ", sync_send_data);
+    // _send_line_(pathname, sync_send_data);
 
     Thread *thread = get_curr_thread();
     for(size_t i = 0; i < THREAD_FD_MAX_NUM; i++){
         if(thread->files[i]) continue;
-        int error = vfs_open(pathname, flags, thread->files + i);
+        int error = vfs_open(pathname, flags, &(thread->files[i]));
 
         if(error < 0) {SET_RETURN_VALUE(error);}
         else SET_RETURN_VALUE(i);
@@ -267,10 +270,14 @@ void open_s(uint64_t *trap_frame){
 
 void close_s(uint64_t *trap_frame){
     int fd = (int) trap_frame[0];
-    if(fd >= THREAD_FD_MAX_NUM) {
+    if(fd >= THREAD_FD_MAX_NUM || fd < 0) {
         SET_RETURN_VALUE(-1);
         return;
     }
+
+    // char temp[10];
+    //_send_string_("close fd ", sync_send_data);
+    //_send_line_(itoa(fd, temp, DEC), sync_send_data);
 
     Thread *thread = get_curr_thread();
     SET_RETURN_VALUE(vfs_close(thread->files[fd]));
@@ -282,6 +289,12 @@ void write_s(uint64_t *trap_frame){
     const void *buf = (const void *) trap_frame[1];
     unsigned long count = (unsigned long) trap_frame[2];
     
+    // char temp[10];90
+    //_send_string_("write to ", sync_send_data);
+    //_send_line_(itoa(fd, temp, DEC), sync_send_data);
+    //_send_string_("\t", sync_send_data);
+    //_send_line_((char *) buf, sync_send_data);
+
     if(fd >= THREAD_FD_MAX_NUM) {
         SET_RETURN_VALUE(-1);
         return;
@@ -297,13 +310,19 @@ void read_s(uint64_t *trap_frame){
     void *buf = (void *) trap_frame[1];
     unsigned long count = (unsigned long) trap_frame[2];
 
-    if(fd >= THREAD_FD_MAX_NUM) {
+    if(fd >= THREAD_FD_MAX_NUM || fd < 0) {
         SET_RETURN_VALUE(-1);
         return;
     }
+
+    // char temp[10];
+    // _send_string_("read from ", sync_send_data);
+    // _send_line_(itoa(fd, temp, DEC), sync_send_data);
+    // _send_string_("\t", sync_send_data);
     
     Thread *thread = get_curr_thread();
-    SET_RETURN_VALUE(vfs_read(thread->files[fd],buf, count));
+    SET_RETURN_VALUE(vfs_read(thread->files[fd], buf, count));
+    // _send_line_((char *) buf, sync_send_data);
 }
 
 
@@ -322,6 +341,9 @@ void mount_s(uint64_t *trap_frame){
 
 void chdir_s(uint64_t *trap_frame){
     const char *path = (const char *) trap_frame[0];
+
+    // _send_string_("cd to ", sync_send_data);
+    // _send_line_(path, sync_send_data);
 
     Thread *thread = get_curr_thread();
     Vnode *new_dir = NULL;

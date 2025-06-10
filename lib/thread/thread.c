@@ -206,7 +206,7 @@ void init_thread(Thread *target_thread, Task assigned, void *args, RCregion *pro
     target_thread->cwd = rootfs.root;
     target_thread->files = (FileHandler **)dyna_alloc(8 * THREAD_FD_MAX_NUM);
     for(int i = 0; i < THREAD_FD_MAX_NUM; i++){
-        target_thread->files = NULL;
+        target_thread->files[i] = NULL;
     }
 }
 

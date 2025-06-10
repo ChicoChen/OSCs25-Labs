@@ -5,7 +5,6 @@
 #include "thread/thread.h"
 #include "utils.h"
 #include "str_utils.h"
-
 #define FILESYSTEM_MAX_NUM 10
 
 // ----- local & forward declarations -----
@@ -180,6 +179,7 @@ int vfs_open(const char* pathname, int flags, FileHandler** target) {
 
 	dyna_free(path);
 	if(error < 0) return error;
+
 	child = (child->mount)? child->mount->root: child;
 	error = child->fops->open(child, target);
 	(*target)->flags = flags;
@@ -188,15 +188,15 @@ int vfs_open(const char* pathname, int flags, FileHandler** target) {
 
 int vfs_read(FileHandler* file, void* buf, size_t len) {
 	// ! block if nothing to read for FIFO type
-	return file->vnode->fops->read(file, buf, len);
+	return file->ops->read(file, buf, len);
 }
 
 int vfs_write(FileHandler* file, const void* buf, size_t len) {
-	return file->vnode->fops->write(file, buf, len);
+	return file->ops->write(file, buf, len);
 }
 
 int vfs_close(FileHandler* file) {
-	return file->vnode->fops->close(file);
+	return file->ops->close(file);
 }
 
 // ----- local methods -----

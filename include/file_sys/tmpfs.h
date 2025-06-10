@@ -14,7 +14,7 @@ typedef enum {
 } TmpfsType;
 
 
-#define TMPFSINTERNAL_SIZE (32 + 8 * MAX_FILE_ENTRY_SIZE)
+#define TMPFSINTERNAL_SIZE (36 + 8 * MAX_FILE_ENTRY_SIZE)
 typedef struct {
     TmpfsType type;
     Vnode *parent;

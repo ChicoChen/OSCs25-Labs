@@ -59,6 +59,7 @@ int tmpfs_lookup_i(Vnode* dir_node, Vnode** target, const char* component_name){
 	for(size_t i = 0; i < internal->num_children; i++){
         if(!strcmp(internal->children_name[i], component_name)) continue;
         *target = internal->children[i];
+        break;
     }
 
 	return (*target)? 0: FILE_NOT_FOUND;
@@ -85,11 +86,10 @@ int tmpfs_open_i(Vnode* file_node, FileHandler** target){
 }
 
 int tmpfs_read_i(FileHandler* file, void* buf, size_t len){
-    TmpfsInternal *internal = file->vnode->internal;
+    TmpfsInternal *internal = (TmpfsInternal *)file->vnode->internal;
     if(internal->type == directory) return OPERATION_NOT_ALLOW;
     else if(!FILE_READABLE(file->flags)) return OPERATION_NOT_ALLOW;
-    else if(file->f_pos >= internal->file_size) return 0; // EOF
-    
+    if(file->f_pos >= internal->file_size) return 0; // EOF
 
     uint64_t start = (uint64_t)internal->content + file->f_pos;
     size_t remains = internal->file_size - file->f_pos;
@@ -100,19 +100,18 @@ int tmpfs_read_i(FileHandler* file, void* buf, size_t len){
 }
 
 int tmpfs_write_i(FileHandler* file, const void* buf, size_t len){
-    TmpfsInternal *internal = file->vnode->internal;
+    TmpfsInternal *internal = (TmpfsInternal *)file->vnode->internal;
     if(internal->type == directory) return OPERATION_NOT_ALLOW;
     else if(!FILE_WRITEABLE(file->flags)) return OPERATION_NOT_ALLOW;
     else if(file->f_pos >= FILE_CONTENT_LENGTH) return 0; // exceed EOF
 
-    // size_t original_length = internal->file_size;
-    uint64_t start = (uint64_t)internal->content + file->f_pos;
-    size_t remains = MAX_FILE_ENTRY_SIZE - file->f_pos;
+    uint64_t start = (uint64_t)(internal->content) + file->f_pos;
+    size_t remains = FILE_CONTENT_LENGTH - file->f_pos;
     size_t total_write = (len < remains)? len: remains;
     memcpy((void *)start, buf, total_write);
     
     file->f_pos += total_write;
-    if(file->f_pos > internal->file_size) internal->file_size = file->f_pos;
+    if(file->f_pos >= internal->file_size) internal->file_size = file->f_pos;
     
     return total_write;
 }
@@ -178,7 +177,7 @@ int tmpfs_make_childnode(Vnode* parent, Vnode** target, const char* component_na
     init_tmpfs_node(child_internal, parent, type);
     *target = (Vnode *)dyna_alloc(VNODE_SIZE);
     if(!*target) return ALLOCATION_FAILED;
-    init_vnode(*target, NULL, child_internal, &tmpfs_vops, &tmpfs_fops);
+    init_vnode(*target, NULL, (void *)child_internal, &tmpfs_vops, &tmpfs_fops);
 
     par_internal->children[idx] = *target;
     par_internal->num_children++;
