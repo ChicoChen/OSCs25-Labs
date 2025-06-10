@@ -1,0 +1,3 @@
+initramfs initramfs.cpio
+kernel=loader.img
+arm_64bit=1
