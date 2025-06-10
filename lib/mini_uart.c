@@ -148,7 +148,7 @@ void send_line(char *line){
 size_t send_from_buf(char *buffer, size_t size){
     size_t total_send = 0;
     while(total_send < size){
-        async_send_data(buffer[total_send++]);
+        sync_send_data(buffer[total_send++]);
         if(async_tran.len == ASYNC_BUFFER_SIZE) break;
     }
     return total_send;
