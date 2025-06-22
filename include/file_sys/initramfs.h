@@ -9,6 +9,10 @@
 #define CAT_BUFFER_SIZE 2048
 #define HEADER_SIZE 110
 
+#define INITRAMFS_MAX_FILESIZE 2048
+#define INITRAMFS_MAX_CHILDREN_NUM 32
+
+
 typedef struct{
     char c_magic[6];
     char c_ino[8];
@@ -25,6 +29,23 @@ typedef struct{
     char c_namesize[8];
     char c_check[8];
 } cpio_newc_header;
+
+typedef enum {
+    content_file,
+    directory
+} InitramfsType;
+
+typedef struct{
+    InitramfsType type;
+    Vnode *parent;
+    size_t num_children;
+    char **children_name;
+    Vnode *children[INITRAMFS_MAX_CHILDREN_NUM];
+    size_t filesize;
+    void *content;
+}InitramfsInternal;
+
+extern FileSystem initramfs;
 
 extern char* newc_magic_str;
 extern char* terminator;
