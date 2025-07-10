@@ -3,6 +3,7 @@
 
 #include "basic_type.h"
 #include "allocator/rc_region.h"
+#include "file_sys/vfs.h"
 
 #define LS_BUFFER_SIZE 256
 #define MAX_FILENAME 32
@@ -12,6 +13,8 @@
 #define INITRAMFS_MAX_FILESIZE 2048
 #define INITRAMFS_MAX_CHILDREN_NUM 32
 
+extern FileSystem initramfs;
+extern size_t initramfs_size;
 
 typedef struct{
     char c_magic[6];
@@ -35,29 +38,39 @@ typedef enum {
     directory
 } InitramfsType;
 
+typedef struct {
+    char *child_name;
+    Vnode *children;
+}InitramfsChildNode;
+
+typedef union {
+    char file_content[INITRAMFS_MAX_FILESIZE];
+    InitramfsChildNode *children[INITRAMFS_MAX_CHILDREN_NUM];
+} InitramfsData;
+
+typedef union {
+    size_t num_children;
+    size_t filesize;
+} InitramfsDataSize;
+
 typedef struct{
     InitramfsType type;
     Vnode *parent;
-    size_t num_children;
-    char **children_name;
-    Vnode *children[INITRAMFS_MAX_CHILDREN_NUM];
-    size_t filesize;
-    void *content;
+    InitramfsDataSize data_size;
+    InitramfsData *data;
 }InitramfsInternal;
-
-extern FileSystem initramfs;
 
 extern char* newc_magic_str;
 extern char* terminator;
 
-void init_ramfile();
+void get_initramfs_info();
 int list_ramfile(void *args);
 int view_ramfile(void *args);
 
-addr_t find_address(char *filename, unsigned int *filesize_ptr);
+void init_initramfs();
+int mount_initramfs(FileSystem *fs, Mount *mount);
+
 RCregion *load_program(char *prog_name);
 int run_prog(char *name, char **argv);
-
-int check_magic(byte* magic);
 
 #endif

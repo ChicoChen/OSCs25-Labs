@@ -6,7 +6,7 @@
 
 void init_mem(){
     init_dtb();
-    init_ramfile();
+    get_initramfs_info();
     init_page_array((void *)PAGE_ARRAY_START);
     memory_reserve((void *)SPIN_TABLE_START, SPIN_TABLE_SIZE);
     memory_reserve((void *)PAGE_ARRAY_START, PAGE_ARRAY_SIZE);

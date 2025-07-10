@@ -13,6 +13,5 @@
 #define FILE_NOT_FOUND          -2
 #define ALLOCATION_FAILED       -3
 #define OPERATION_NOT_ALLOW     -4
-#define OPERATION_NOT_ALLOW     -4
 
 #endif 
