@@ -6,16 +6,18 @@
 #include "file_sys/vfs.h"
 
 #define LS_BUFFER_SIZE 256
-#define MAX_FILENAME 32
 #define CAT_BUFFER_SIZE 2048
-#define HEADER_SIZE 110
 
-#define INITRAMFS_MAX_FILESIZE 2048
-#define INITRAMFS_MAX_CHILDREN_NUM 32
+#define INITRAMFS_MAX_PATH_LEN 128
+// wait, the meta of CPIO files is known, I don't need max limitation.
+// // #define INITRAMFS_MAX_FILENAME_LEN 64
+// // #define INITRAMFS_MAX_FILESIZE 
+// // #define INITRAMFS_MAX_CHILDREN_NUM 16
 
 extern FileSystem initramfs;
 extern size_t initramfs_size;
 
+#define CPIO_HEADER_SIZE 110
 typedef struct{
     char c_magic[6];
     char c_ino[8];
@@ -31,7 +33,7 @@ typedef struct{
     char c_rdevminor[8];
     char c_namesize[8];
     char c_check[8];
-} cpio_newc_header;
+} CpioNewcHeader;
 
 typedef enum {
     content_file,
@@ -39,13 +41,13 @@ typedef enum {
 } InitramfsType;
 
 typedef struct {
-    char *child_name;
-    Vnode *children;
-}InitramfsChildNode;
+    char *name;
+    Vnode *node;
+}InitramfsChild;
 
 typedef union {
-    char file_content[INITRAMFS_MAX_FILESIZE];
-    InitramfsChildNode *children[INITRAMFS_MAX_CHILDREN_NUM];
+    char *file_content;
+    InitramfsChild **children;
 } InitramfsData;
 
 typedef union {
