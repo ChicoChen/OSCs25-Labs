@@ -1,9 +1,11 @@
 #ifndef INITRAMFS_H
 #define INITRAMFS_H
 
-#include "basic_type.h"
-#include "allocator/rc_region.h"
 #include "file_sys/vfs.h"
+#include "file_sys/fs_macros.h"
+#include "allocator/rc_region.h"
+#include "template/list.h"
+#include "basic_type.h"
 
 #define LS_BUFFER_SIZE 256
 #define CAT_BUFFER_SIZE 2048
@@ -42,12 +44,13 @@ typedef enum {
 
 typedef struct {
     char *name;
-    Vnode *node;
+    Vnode *vnode;
+    ListNode list_node;
 }InitramfsChild;
 
 typedef union {
     char *file_content;
-    InitramfsChild **children;
+    InitramfsChild *children;
 } InitramfsData;
 
 typedef union {
@@ -59,7 +62,7 @@ typedef struct{
     InitramfsType type;
     Vnode *parent;
     InitramfsDataSize data_size;
-    InitramfsData *data;
+    InitramfsData data;
 }InitramfsInternal;
 
 extern char* newc_magic_str;
@@ -74,5 +77,15 @@ int mount_initramfs(FileSystem *fs, Mount *mount);
 
 RCregion *load_program(char *prog_name);
 int run_prog(char *name, char **argv);
+
+
+int initramfs_lookup_i(Vnode *dir_node, Vnode **target, const char *component_name);
+int initramfs_create_i(Vnode *dir_node, Vnode **target, const char *component_name);
+int initramfs_mkdir_i(Vnode *dir_node, Vnode **target, const char *component_name);
+
+int initramfs_open_i(Vnode* file_node, FileHandler** target);
+int initramfs_read_i(FileHandler* file, void* buf, size_t len);
+int initramfs_write_i(FileHandler* file, const void* buf, size_t len);
+int initramfs_close_i(FileHandler* file);
 
 #endif
