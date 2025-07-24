@@ -57,6 +57,48 @@ int mount_initramfs(FileSystem *fs, Mount *mount){
 
 }
 
+int initramfs_lookup_i(Vnode *dir_node, Vnode **target, const char *component_name){
+    InitramfsInternal *internal = (InitramfsInternal *)dir_node->internal;
+    if(internal->type != directory) return OPERATION_NOT_ALLOW;
+
+    InitramfsChild *child = internal->data.children;
+    while(child){
+        if(strcmp(component_name, child->name)){
+            *target = child->vnode;
+            return 0;
+        }
+        
+        child = (child->list_node.next)?
+                GET_CONTAINER(child->list_node.next, InitramfsChild, list_node):
+                NULL;
+    }
+    return FILE_NOT_FOUND;
+}
+
+int initramfs_create_i(Vnode *dir_node, Vnode **target, const char *component_name){
+    return OPERATION_NOT_ALLOW;
+}
+
+int initramfs_mkdir_i(Vnode *dir_node, Vnode **target, const char *component_name){
+    return OPERATION_NOT_ALLOW;
+}
+
+int initramfs_open_i(Vnode* file_node, FileHandler** target){
+
+}
+
+int initramfs_read_i(FileHandler* file, void* buf, size_t len){
+
+}
+
+int initramfs_write_i(FileHandler* file, const void* buf, size_t len){
+    return OPERATION_NOT_ALLOW;
+}
+
+int initramfs_close_i(FileHandler* file){
+
+}
+
 int list_ramfile(void *args){
     if(!initramfs_addr) get_initramfs_info();
 
