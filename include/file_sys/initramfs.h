@@ -42,6 +42,7 @@ typedef enum {
     directory
 } InitramfsType;
 
+/// @brief children are stored in link-list
 typedef struct {
     char *name;
     Vnode *vnode;

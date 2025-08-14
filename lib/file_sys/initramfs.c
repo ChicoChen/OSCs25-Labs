@@ -21,7 +21,8 @@ char* terminator = "TRAILER!!!";
 int terminator_size = 11;
 
 // ----- forward declaration -----
-int init_initramfs_node();
+void init_initramfs_internal(InitramfsInternal *target, InitramfsType type,
+    Vnode *parent);
 
 addr_t find_address(char *filename, unsigned int *filesize_ptr);
 void set_initramfs(unsigned int type, char *name, void *data, size_t len);
@@ -257,36 +258,57 @@ int parse_cpio(){
 
 }
 
-int init_initramfs_node(InitramfsInternal *target, InitramfsType type,
-    Vnode *parent, size_t size, void *data)
+void init_initramfs_internal(InitramfsInternal *target, InitramfsType type,
+    Vnode *parent)
 {
     target->type = type;
-    target->parent = NULL;
+    target->parent = parent;
 
     if(type == directory){
-        target->data_size.num_children = size;
-        // children data
+        target->data_size.num_children = 0;
+        target->data.children = NULL;
     }
     else{
-        target->data_size.filesize = size;
-        // content data
+        target->data_size.filesize = 0;
+        target->data.file_content = NULL;
     }
 }
 
-int initramfs_lookup_i(Vnode *dir_node, Vnode **target, const char *component_name){
-    InitramfsInternal *internal = (InitramfsInternal *)dir_node->internal;
-    if(internal->type != directory) return OPERATION_NOT_ALLOW;
-    else if(!internal->data->children) return FILE_NOT_FOUND;
+int create_child(Vnode *parent, Vnode **target, const char *child_name, InitramfsType child_type){
+    InitramfsInternal *parent_internal = (InitramfsInternal *)parent->internal;
+    if(parent_internal->type != directory) return OPERATION_NOT_ALLOW;
+    
+    InitramfsChild *child = (InitramfsChild *)dyna_alloc(sizeof(InitramfsChild));
+    node_init(&child->list_node);
+    
+    // assign filename
+    size_t name_len = get_size(child_name);
+    child->name = (char *)dyna_alloc(name_len);
+    memcpy(child->name, child_name, name_len);
+    
+    // create vnode
+    child->vnode = dyna_alloc(sizeof(Vnode));
+    InitramfsInternal *child_internal = dyna_alloc(sizeof(InitramfsInternal));
+    init_initramfs_internal(child_internal, child_type, parent);
+    init_vnode(child->vnode, NULL, child_internal, &initramfs_vops, &initramfs_fops);
 
-    for(size_t i = 0; i < internal->data_size.num_children; i++){
-        InitramfsChild* child = internal->data->children[i];
-        if(!child) continue;
-        else if(strcmp(component_name, child->name)){
-            *target = child->node;
-            return 0;
-        }
+    if(parent_internal->data_size.num_children == 0){
+        parent_internal->data.children = child;
+        return 0;
     }
-    return FILE_NOT_FOUND;
+
+    // for non-empty directory
+    InitramfsChild *curr = parent_internal->data.children;
+    while(true){
+        if(strcmp(curr->name, child_name)) {
+            // todo: reclaim memory
+            return OPERATION_NOT_ALLOW;
+        }
+        else if(!curr->list_node.next) break;
+        curr = GET_CONTAINER(curr->list_node.next, InitramfsChild, list_node);
+    }
+    list_add(&child->list_node, curr, NULL);
+    return 0;
 }
 
 addr_t find_address(char *filename, unsigned int *filesize_ptr){
