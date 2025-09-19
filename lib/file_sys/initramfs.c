@@ -221,11 +221,14 @@ int parse_cpio(){
     while(true){
         CpioNewcHeader *header = (CpioNewcHeader *)read_head;
         if(!check_magic(header->c_magic)) return -1;
-
+        
         int pathsize = carrtoi(header->c_namesize, 8, HEX);
         int filesize = carrtoi(header->c_filesize, 8, HEX);
         if(pathsize + 1 >= INITRAMFS_MAX_PATH_LEN) return ALLOCATION_FAILED;
-
+        
+        // if a file or path
+        InitramfsType type = (filesize == 0)? directory: content_file;
+        
         read_head += CPIO_HEADER_SIZE;
         memcpy((void *)path, (void *)read_head, pathsize);
         path[pathsize] = '\0'; // null terminate
@@ -238,7 +241,8 @@ int parse_cpio(){
             // child of initramfs node must be cpio node.
             int error = initramfs_lookup_i(curr_node, &next_node, tok);
             if(error == FILE_NOT_FOUND) {
-                // create new node;
+                create_child(curr_node, next_node, tok, content_file);
+                break;
             }
             else if(error) return error;
 
@@ -250,8 +254,6 @@ int parse_cpio(){
         read_head = (byte *)align((void *)(read_head + pathsize), 4);
         byte *content = read_head;
         
-        // 3. decide is it a file or path
-        InitramfsType type = (filesize == 0)? directory: content_file;
 
         // 4. create and init node
     }
@@ -278,6 +280,17 @@ int create_child(Vnode *parent, Vnode **target, const char *child_name, Initramf
     InitramfsInternal *parent_internal = (InitramfsInternal *)parent->internal;
     if(parent_internal->type != directory) return OPERATION_NOT_ALLOW;
     
+    // find insert position
+    InitramfsChild *curr = parent_internal->data.children;
+    if(curr){
+        while(true){
+            if(strcmp(curr->name, child_name))
+                return OPERATION_NOT_ALLOW;
+            else if(!curr->list_node.next) break;
+            curr = GET_CONTAINER(curr->list_node.next, InitramfsChild, list_node);
+        }
+    }
+
     InitramfsChild *child = (InitramfsChild *)dyna_alloc(sizeof(InitramfsChild));
     node_init(&child->list_node);
     
@@ -292,21 +305,13 @@ int create_child(Vnode *parent, Vnode **target, const char *child_name, Initramf
     init_initramfs_internal(child_internal, child_type, parent);
     init_vnode(child->vnode, NULL, child_internal, &initramfs_vops, &initramfs_fops);
 
-    if(parent_internal->data_size.num_children == 0){
+    // insert at head if empty
+    if(!curr){
         parent_internal->data.children = child;
         return 0;
     }
 
-    // for non-empty directory
-    InitramfsChild *curr = parent_internal->data.children;
-    while(true){
-        if(strcmp(curr->name, child_name)) {
-            // todo: reclaim memory
-            return OPERATION_NOT_ALLOW;
-        }
-        else if(!curr->list_node.next) break;
-        curr = GET_CONTAINER(curr->list_node.next, InitramfsChild, list_node);
-    }
+    // or insert at last pos
     list_add(&child->list_node, curr, NULL);
     return 0;
 }
